@@ -90,6 +90,10 @@ node_modules/
 dist/
 web-build/
 
+# Antigravity / Agents
+.agents/
+skills-lock.json
+
 # Logs
 npm-debug.*
 yarn-debug.*
