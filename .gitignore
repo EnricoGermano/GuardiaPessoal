@@ -80,3 +80,18 @@ lint/generated/
 lint/outputs/
 lint/tmp/
 # lint/reports/
+# Node / Dependencies
+node_modules/
+.npm
+
+# Expo / React Native (caso esteja usando Expo/React Native)
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# Logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
