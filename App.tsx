@@ -8,6 +8,8 @@ import { SetupScreen } from './src/screens/auth/SetupScreen';
 import { LockScreen } from './src/screens/auth/LockScreen';
 import { HomeScreen } from './src/screens/passwords/PasswordListScreen';
 
+import * as ScreenCapture from 'expo-screen-capture';
+
 function AppContent() {
   const { state } = useAuth();
 
@@ -31,6 +33,12 @@ function AppContent() {
 }
 
 export default function App() {
+  ScreenCapture.usePreventScreenCapture();
+
+  React.useEffect(() => {
+    ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AuthProvider>
