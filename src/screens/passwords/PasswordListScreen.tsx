@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, Alert, Pressable, ScrollView,
+  StyleSheet, Alert, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
@@ -10,30 +10,20 @@ import { useClipboardTimer } from '../../hooks/useClipboardTimer';
 import { useInactivityTimer } from '../../hooks/useInactivityTimer';
 import { PrivacyShield } from '../../components/PrivacyShield';
 import { PasswordFormScreen } from './PasswordFormScreen';
-import { NoteFormModal } from '../notes/NoteFormModal';
-import { SecurityDashboardModal } from '../settings/SecurityDashboardModal';
-import { SettingsModal } from '../settings/SettingsModal';
-import { AccessLogsModal } from '../settings/AccessLogsModal';
-import type { PasswordItem, NoteItem } from '../../types/vault';
+import type { PasswordItem } from '../../types/vault';
 
 type Tab = 'passwords' | 'notes' | 'add';
 type SortMode = 'nome' | 'data' | 'importancia';
 
 export function HomeScreen() {
   const { state, lock } = useAuth();
-  const { vault, loading, deletePassword, deleteNote } = useVault();
+  const { vault, loading, deletePassword } = useVault();
   const { copyWithTimer } = useClipboardTimer();
 
   const [tab, setTab] = useState<Tab>('passwords');
   const [search, setSearch] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('nome');
-  const [selectedCategory, setSelectedCategory] = useState<string>('todas');
   const [editingItem, setEditingItem] = useState<PasswordItem | null>(null);
-  const [editingNote, setEditingNote] = useState<NoteItem | null>(null);
-  const [noteModalVisible, setNoteModalVisible] = useState(false);
-  const [securityModalVisible, setSecurityModalVisible] = useState(false);
-  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
-  const [logsModalVisible, setLogsModalVisible] = useState(false);
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const [shieldVisible, setShieldVisible] = useState(false);
 
@@ -47,22 +37,10 @@ export function HomeScreen() {
     resetTimer();
   }, [resetTimer]);
 
-  const categories = [
-    { id: 'todas', name: 'Todas' },
-    { id: '1', name: 'Pessoal' },
-    { id: '2', name: 'Trabalho' },
-    { id: '3', name: 'Financeiro' },
-  ];
-
   const filteredPasswords = useMemo(() => {
     if (!vault) return [];
     const q = search.toLowerCase();
     let items = vault.passwords.filter(p => !p.isHidden);
-
-    if (selectedCategory !== 'todas') {
-      items = items.filter(p => p.category === selectedCategory);
-    }
-
     if (q) {
       items = items.filter(p =>
         p.service.toLowerCase().includes(q) ||
@@ -80,49 +58,20 @@ export function HomeScreen() {
       const impMap = { alta: 3, media: 2, baixa: 1 };
       return impMap[b.importance] - impMap[a.importance];
     });
-  }, [vault, search, sortMode, selectedCategory]);
-
-  const filteredNotes = useMemo(() => {
-    if (!vault) return [];
-    const q = search.toLowerCase();
-    const now = Date.now();
-    // Exclude expired auto-destruct notes
-    let notes = vault.notes.filter(n => !n.isHidden && (!n.expiresAt || n.expiresAt > now));
-
-    if (q) {
-      notes = notes.filter(n =>
-        n.title.toLowerCase().includes(q) ||
-        n.content.toLowerCase().includes(q) ||
-        (n.observations && n.observations.toLowerCase().includes(q))
-      );
-    }
-
-    return notes.sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0));
-  }, [vault, search]);
+  }, [vault, search, sortMode]);
 
   const handleCopy = async (text: string, label: string) => {
     await copyWithTimer(text, 30);
     Alert.alert('Copiado', `${label} copiado. Sera limpo em 30s.`);
   };
 
-  const handleDeletePassword = (item: PasswordItem) => {
+  const handleDelete = (item: PasswordItem) => {
     Alert.alert(
       'Excluir senha',
       `Tem certeza que deseja excluir "${item.service}"?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Excluir', style: 'destructive', onPress: () => deletePassword(item.id) },
-      ]
-    );
-  };
-
-  const handleDeleteNote = (item: NoteItem) => {
-    Alert.alert(
-      'Excluir nota',
-      `Tem certeza que deseja excluir "${item.title}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Excluir', style: 'destructive', onPress: () => deleteNote(item.id) },
       ]
     );
   };
@@ -188,7 +137,7 @@ export function HomeScreen() {
 
           <TouchableOpacity
             style={[styles.actionBtn, styles.deleteBtn]}
-            onPress={() => handleDeletePassword(item)}
+            onPress={() => handleDelete(item)}
           >
             <Text style={styles.deleteText}>Excluir</Text>
           </TouchableOpacity>
@@ -222,25 +171,9 @@ export function HomeScreen() {
         onLongPress={() => setShieldVisible(true)}
       >
         <Text style={styles.headerTitle}>Guardiao Pessoal</Text>
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.headerNavBtn}
-            onPress={() => setSecurityModalVisible(true)}
-          >
-            <Text style={styles.headerNavText}>Saude</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.headerNavBtn}
-            onPress={() => setSettingsModalVisible(true)}
-          >
-            <Text style={styles.headerNavText}>Ajustes</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.lockButton} onPress={lock}>
-            <Text style={styles.lockButtonText}>Trancar</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.lockButton} onPress={lock}>
+          <Text style={styles.lockButtonText}>Trancar</Text>
+        </TouchableOpacity>
       </Pressable>
 
       <View style={styles.tabs}>
@@ -263,38 +196,13 @@ export function HomeScreen() {
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
-          placeholder="Buscar credencial ou nota..."
+          placeholder="Buscar credencial..."
           placeholderTextColor="#A8A199"
           value={search}
           onChangeText={setSearch}
           onFocus={handleTouch}
         />
       </View>
-
-      {/* Category Pills (US16) */}
-      {tab === 'passwords' && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryBar}>
-          {categories.map(cat => (
-            <TouchableOpacity
-              key={cat.id}
-              style={[
-                styles.categoryChip,
-                selectedCategory === cat.id && styles.categoryChipActive,
-              ]}
-              onPress={() => setSelectedCategory(cat.id)}
-            >
-              <Text
-                style={[
-                  styles.categoryChipText,
-                  selectedCategory === cat.id && styles.categoryChipTextActive,
-                ]}
-              >
-                {cat.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
 
       {tab === 'passwords' && (
         <View style={styles.sortContainer}>
@@ -338,103 +246,33 @@ export function HomeScreen() {
         />
       ) : (
         <FlatList
-          data={filteredNotes}
+          data={vault?.notes.filter(n => !n.isHidden) || []}
           renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.itemCard}
-              onPress={() => {
-                setEditingNote(item);
-                setNoteModalVisible(true);
-              }}
-            >
-              <View style={styles.itemHeader}>
-                <Text style={styles.itemService}>{item.title}</Text>
-                {item.isFavorite && (
-                  <View style={[styles.badge, { backgroundColor: '#FFF9EE' }]}>
-                    <Text style={[styles.badgeText, { color: '#996515' }]}>Favorita</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.itemUser} numberOfLines={3}>{item.content}</Text>
-              {item.observations ? (
-                <Text style={styles.hintText}>Obs: {item.observations}</Text>
-              ) : null}
-              {item.autoDestructDays ? (
-                <Text style={styles.warningText}>Auto-destruicao: {item.autoDestructDays}d</Text>
-              ) : null}
-              <View style={[styles.itemActions, { marginTop: 10 }]}>
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => {
-                    setEditingNote(item);
-                    setNoteModalVisible(true);
-                  }}
-                >
-                  <Text style={styles.actionText}>Editar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.actionBtn, styles.deleteBtn]}
-                  onPress={() => handleDeleteNote(item)}
-                >
-                  <Text style={styles.deleteText}>Excluir</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
+            <View style={styles.itemCard}>
+              <Text style={styles.itemService}>{item.title}</Text>
+              <Text style={styles.itemUser} numberOfLines={2}>{item.content}</Text>
+              {item.isFavorite && <Text style={styles.favoriteTag}>Favorita</Text>}
+            </View>
           )}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.center}>
-              <Text style={styles.emptyText}>Nenhuma nota confidencial salva</Text>
+              <Text style={styles.emptyText}>Nenhuma nota salva</Text>
             </View>
           }
         />
       )}
 
-      {/* FAB Button */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => {
-          if (tab === 'notes') {
-            setEditingNote(null);
-            setNoteModalVisible(true);
-          } else {
-            setEditingItem(null);
-            setTab('add');
-          }
+          setEditingItem(null);
+          setTab('add');
         }}
       >
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
-
-      {/* Modais Integrados */}
-      <NoteFormModal
-        visible={noteModalVisible}
-        editingItem={editingNote}
-        onClose={() => {
-          setNoteModalVisible(false);
-          setEditingNote(null);
-        }}
-      />
-
-      <SecurityDashboardModal
-        visible={securityModalVisible}
-        onClose={() => setSecurityModalVisible(false)}
-        onOpenLogs={() => {
-          setSecurityModalVisible(false);
-          setLogsModalVisible(true);
-        }}
-      />
-
-      <SettingsModal
-        visible={settingsModalVisible}
-        onClose={() => setSettingsModalVisible(false)}
-      />
-
-      <AccessLogsModal
-        visible={logsModalVisible}
-        onClose={() => setLogsModalVisible(false)}
-      />
     </SafeAreaView>
   );
 }
@@ -449,26 +287,16 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
   },
-  headerTitle: { color: '#1E1E1E', fontSize: 20, fontWeight: '700' },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerNavBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E6DFD5',
-  },
-  headerNavText: { color: '#4A4237', fontSize: 12, fontWeight: '600' },
+  headerTitle: { color: '#1E1E1E', fontSize: 22, fontWeight: '700' },
   lockButton: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     backgroundColor: '#FFF9EE',
     borderWidth: 1,
     borderColor: '#EED8A1',
   },
-  lockButtonText: { color: '#996515', fontSize: 12, fontWeight: '700' },
+  lockButtonText: { color: '#996515', fontSize: 13, fontWeight: '700' },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, gap: 20, marginTop: 4 },
   tab: { paddingVertical: 8, position: 'relative' },
   tabText: { color: '#756F68', fontSize: 15, fontWeight: '500' },
@@ -482,7 +310,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#B5824C',
     borderRadius: 2,
   },
-  searchContainer: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
+  searchContainer: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
   searchInput: {
     backgroundColor: '#FFFFFF',
     color: '#1E1E1E',
@@ -492,23 +320,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E6DFD5',
   },
-  categoryBar: { paddingHorizontal: 16, paddingVertical: 6, gap: 8 },
-  categoryChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E6DFD5',
-  },
-  categoryChipActive: { backgroundColor: '#FFF9EE', borderColor: '#B5824C' },
-  categoryChipText: { fontSize: 12, color: '#756F68' },
-  categoryChipTextActive: { color: '#996515', fontWeight: '700' },
   sortContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginTop: 4,
     marginBottom: 8,
     gap: 8,
   },
@@ -554,9 +369,10 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   badgeText: { fontSize: 11, fontWeight: '700' },
-  itemUser: { color: '#756F68', fontSize: 13, marginBottom: 8 },
+  itemUser: { color: '#756F68', fontSize: 13, marginBottom: 10 },
   warningText: { color: '#D9822B', fontSize: 12, marginBottom: 8, fontWeight: '500' },
-  hintText: { color: '#A8A199', fontSize: 12, marginTop: 4, fontStyle: 'italic' },
+  hintText: { color: '#A8A199', fontSize: 12, marginTop: 6, fontStyle: 'italic' },
+  favoriteTag: { color: '#B5824C', fontSize: 12, marginTop: 4, fontWeight: '600' },
   itemActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   actionBtn: {
     paddingVertical: 5,

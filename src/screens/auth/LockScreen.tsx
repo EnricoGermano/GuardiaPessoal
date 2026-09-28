@@ -5,14 +5,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { authenticateWithBiometrics, isBiometricAvailable } from '../../hooks/useBiometrics';
-import { FaceAuthModal } from '../../components/FaceAuthModal';
 
 export function LockScreen() {
   const { state, verifyPin, unlock, unlockDaily, wipeAll } = useAuth();
   const [pin, setPin] = useState('');
   const [biometricReady, setBiometricReady] = useState(false);
   const [lockCountdown, setLockCountdown] = useState(0);
-  const [faceModalVisible, setFaceModalVisible] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -56,7 +54,7 @@ export function LockScreen() {
       return;
     }
     if (val === 'face') {
-      setFaceModalVisible(true);
+      tryBiometric();
       return;
     }
     if (pin.length < 4) {
@@ -159,15 +157,6 @@ export function LockScreen() {
             <Text style={styles.bioText}>Usar Impressao Digital</Text>
           </TouchableOpacity>
         )}
-
-        <FaceAuthModal
-          visible={faceModalVisible}
-          onClose={() => setFaceModalVisible(false)}
-          onSuccess={async () => {
-            setFaceModalVisible(false);
-            await unlock('facial');
-          }}
-        />
       </View>
     </SafeAreaView>
   );
