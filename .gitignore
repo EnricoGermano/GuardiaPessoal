@@ -89,6 +89,8 @@ node_modules/
 .expo-shared/
 dist/
 web-build/
+android/
+ios/
 
 # Antigravity / Agents
 .agents/
