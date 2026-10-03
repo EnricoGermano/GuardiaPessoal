@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, Alert, Pressable,
@@ -12,12 +12,16 @@ import { PrivacyShield } from '../../components/PrivacyShield';
 import { PasswordFormScreen } from './PasswordFormScreen';
 import type { PasswordItem } from '../../types/vault';
 
-type Tab = 'passwords' | 'notes' | 'add';
+type Tab = 'passwords' | 'add';
 type SortMode = 'nome' | 'data' | 'importancia';
+
+const MASK = '••••••••';
+/** Tempo (ms) que a senha revelada fica visivel antes de ser ocultada de novo. */
+const REVEAL_TIMEOUT_MS = 15000;
 
 export function HomeScreen() {
   const { state, lock } = useAuth();
-  const { vault, loading, deletePassword } = useVault();
+  const { vault, loading, error, deletePassword, reload } = useVault();
   const { copyWithTimer } = useClipboardTimer();
 
   const [tab, setTab] = useState<Tab>('passwords');
@@ -33,9 +37,18 @@ export function HomeScreen() {
     state.mode === 'unlocked'
   );
 
-  const handleTouch = useCallback(() => {
+  // Qualquer toque na tela conta como atividade (sem consumir o toque).
+  const handleTouchCapture = useCallback(() => {
     resetTimer();
+    return false;
   }, [resetTimer]);
+
+  // Revelacao temporaria: oculta a senha automaticamente.
+  useEffect(() => {
+    if (!revealedId) return;
+    const t = setTimeout(() => setRevealedId(null), REVEAL_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [revealedId]);
 
   const filteredPasswords = useMemo(() => {
     if (!vault) return [];
@@ -61,17 +74,32 @@ export function HomeScreen() {
   }, [vault, search, sortMode]);
 
   const handleCopy = async (text: string, label: string) => {
-    await copyWithTimer(text, 30);
-    Alert.alert('Copiado', `${label} copiado. Sera limpo em 30s.`);
+    try {
+      await copyWithTimer(text, 30);
+      Alert.alert('Copiado', `${label} copiado. Sera limpo em 30s.`);
+    } catch {
+      Alert.alert('Erro', 'Nao foi possivel copiar.');
+    }
   };
 
   const handleDelete = (item: PasswordItem) => {
     Alert.alert(
       'Excluir senha',
-      `Tem certeza que deseja excluir "${item.service}"?`,
+      `Tem certeza que deseja excluir "${item.service}"? Esta acao nao pode ser desfeita.`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Excluir', style: 'destructive', onPress: () => deletePassword(item.id) },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deletePassword(item.id);
+              if (revealedId === item.id) setRevealedId(null);
+            } catch (e: any) {
+              Alert.alert('Erro', e?.message || 'Nao foi possivel excluir.');
+            }
+          },
+        },
       ]
     );
   };
@@ -88,9 +116,10 @@ export function HomeScreen() {
 
   const renderPasswordItem = ({ item }: { item: PasswordItem }) => {
     const badge = importanceBadge(item.importance);
+    const revealed = revealedId === item.id;
 
     return (
-      <Pressable style={styles.itemCard} onPress={handleTouch}>
+      <View style={styles.itemCard}>
         <View style={styles.itemHeader}>
           <Text style={styles.itemService} numberOfLines={1}>{item.service}</Text>
           <View style={[styles.badge, { backgroundColor: badge.bg }]}>
@@ -100,20 +129,23 @@ export function HomeScreen() {
 
         <Text style={styles.itemUser}>{item.username}</Text>
 
+        <View style={styles.passwordRow}>
+          <Text style={styles.passwordText} selectable={false} numberOfLines={1}>
+            {revealed ? item.password : MASK}
+          </Text>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => setRevealedId(revealed ? null : item.id)}
+          >
+            <Text style={styles.actionText}>{revealed ? 'Ocultar' : 'Mostrar'}</Text>
+          </TouchableOpacity>
+        </View>
+
         {item.warning && (
           <Text style={styles.warningText}>{item.warning}</Text>
         )}
 
         <View style={styles.itemActions}>
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => setRevealedId(revealedId === item.id ? null : item.id)}
-          >
-            <Text style={styles.actionText}>
-              {revealedId === item.id ? item.password : 'Mostrar'}
-            </Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.actionBtn}
             onPress={() => handleCopy(item.username, 'Usuario')}
@@ -130,7 +162,7 @@ export function HomeScreen() {
 
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => { setEditingItem(item); setTab('add'); }}
+            onPress={() => { setRevealedId(null); setEditingItem(item); setTab('add'); }}
           >
             <Text style={styles.actionText}>Editar</Text>
           </TouchableOpacity>
@@ -146,24 +178,27 @@ export function HomeScreen() {
         {item.hint && (
           <Text style={styles.hintText}>Dica: {item.hint}</Text>
         )}
-      </Pressable>
+      </View>
     );
   };
 
   if (tab === 'add') {
     return (
-      <PasswordFormScreen
-        editingItem={editingItem}
-        onDone={() => {
-          setEditingItem(null);
-          setTab('passwords');
-        }}
-      />
+      <View style={styles.container} onStartShouldSetResponderCapture={handleTouchCapture}>
+        <PasswordFormScreen
+          editingItem={editingItem}
+          onActivity={resetTimer}
+          onDone={() => {
+            setEditingItem(null);
+            setTab('passwords');
+          }}
+        />
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} onStartShouldSetResponderCapture={handleTouchCapture}>
       <PrivacyShield visible={shieldVisible} onDismiss={() => setShieldVisible(false)} />
 
       <Pressable
@@ -176,103 +211,78 @@ export function HomeScreen() {
         </TouchableOpacity>
       </Pressable>
 
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={styles.tab}
-          onPress={() => setTab('passwords')}
-        >
-          <Text style={[styles.tabText, tab === 'passwords' && styles.tabTextActive]}>Senhas</Text>
-          {tab === 'passwords' && <View style={styles.tabIndicator} />}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.tab}
-          onPress={() => setTab('notes')}
-        >
-          <Text style={[styles.tabText, tab === 'notes' && styles.tabTextActive]}>Notas</Text>
-          {tab === 'notes' && <View style={styles.tabIndicator} />}
-        </TouchableOpacity>
-      </View>
-
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
           placeholder="Buscar credencial..."
           placeholderTextColor="#A8A199"
           value={search}
-          onChangeText={setSearch}
-          onFocus={handleTouch}
+          onChangeText={t => { resetTimer(); setSearch(t); }}
         />
       </View>
 
-      {tab === 'passwords' && (
-        <View style={styles.sortContainer}>
-          <Text style={styles.sortLabel}>Ordenar:</Text>
-          <TouchableOpacity
-            style={[styles.sortChip, sortMode === 'nome' && styles.sortChipActive]}
-            onPress={() => setSortMode('nome')}
-          >
-            <Text style={[styles.sortText, sortMode === 'nome' && styles.sortTextActive]}>Nome</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.sortChip, sortMode === 'data' && styles.sortChipActive]}
-            onPress={() => setSortMode('data')}
-          >
-            <Text style={[styles.sortText, sortMode === 'data' && styles.sortTextActive]}>Data</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.sortChip, sortMode === 'importancia' && styles.sortChipActive]}
-            onPress={() => setSortMode('importancia')}
-          >
-            <Text style={[styles.sortText, sortMode === 'importancia' && styles.sortTextActive]}>Prioridade</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <View style={styles.sortContainer}>
+        <Text style={styles.sortLabel}>Ordenar:</Text>
+        <TouchableOpacity
+          style={[styles.sortChip, sortMode === 'nome' && styles.sortChipActive]}
+          onPress={() => setSortMode('nome')}
+        >
+          <Text style={[styles.sortText, sortMode === 'nome' && styles.sortTextActive]}>Nome</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.sortChip, sortMode === 'data' && styles.sortChipActive]}
+          onPress={() => setSortMode('data')}
+        >
+          <Text style={[styles.sortText, sortMode === 'data' && styles.sortTextActive]}>Data</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.sortChip, sortMode === 'importancia' && styles.sortChipActive]}
+          onPress={() => setSortMode('importancia')}
+        >
+          <Text style={[styles.sortText, sortMode === 'importancia' && styles.sortTextActive]}>Prioridade</Text>
+        </TouchableOpacity>
+      </View>
 
       {loading ? (
         <View style={styles.center}>
           <Text style={styles.loadingText}>Carregando...</Text>
         </View>
-      ) : tab === 'passwords' ? (
+      ) : error ? (
+        <View style={styles.center}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={[styles.actionBtn, styles.retryBtn]} onPress={reload}>
+            <Text style={styles.actionText}>Tentar novamente</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
         <FlatList
           data={filteredPasswords}
           renderItem={renderPasswordItem}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
+          onScrollBeginDrag={resetTimer}
           ListEmptyComponent={
             <View style={styles.center}>
-              <Text style={styles.emptyText}>Nenhuma senha salva</Text>
-            </View>
-          }
-        />
-      ) : (
-        <FlatList
-          data={vault?.notes.filter(n => !n.isHidden) || []}
-          renderItem={({ item }) => (
-            <View style={styles.itemCard}>
-              <Text style={styles.itemService}>{item.title}</Text>
-              <Text style={styles.itemUser} numberOfLines={2}>{item.content}</Text>
-              {item.isFavorite && <Text style={styles.favoriteTag}>Favorita</Text>}
-            </View>
-          )}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.list}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>Nenhuma nota salva</Text>
+              <Text style={styles.emptyText}>
+                {search ? 'Nenhuma credencial encontrada' : 'Nenhuma senha salva'}
+              </Text>
             </View>
           }
         />
       )}
 
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => {
-          setEditingItem(null);
-          setTab('add');
-        }}
-      >
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
+      {!error && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => {
+            setRevealedId(null);
+            setEditingItem(null);
+            setTab('add');
+          }}
+        >
+          <Text style={styles.fabText}>+</Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -297,19 +307,6 @@ const styles = StyleSheet.create({
     borderColor: '#EED8A1',
   },
   lockButtonText: { color: '#996515', fontSize: 13, fontWeight: '700' },
-  tabs: { flexDirection: 'row', paddingHorizontal: 16, gap: 20, marginTop: 4 },
-  tab: { paddingVertical: 8, position: 'relative' },
-  tabText: { color: '#756F68', fontSize: 15, fontWeight: '500' },
-  tabTextActive: { color: '#1E1E1E', fontWeight: '700' },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 2.5,
-    backgroundColor: '#B5824C',
-    borderRadius: 2,
-  },
   searchContainer: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
   searchInput: {
     backgroundColor: '#FFFFFF',
@@ -369,10 +366,29 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   badgeText: { fontSize: 11, fontWeight: '700' },
-  itemUser: { color: '#756F68', fontSize: 13, marginBottom: 10 },
+  itemUser: { color: '#756F68', fontSize: 13, marginBottom: 8 },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F7F5F0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#EFEBE4',
+  },
+  passwordText: {
+    color: '#1E1E1E',
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+    marginRight: 8,
+    letterSpacing: 1.5,
+  },
   warningText: { color: '#D9822B', fontSize: 12, marginBottom: 8, fontWeight: '500' },
   hintText: { color: '#A8A199', fontSize: 12, marginTop: 6, fontStyle: 'italic' },
-  favoriteTag: { color: '#B5824C', fontSize: 12, marginTop: 4, fontWeight: '600' },
   itemActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   actionBtn: {
     paddingVertical: 5,
@@ -388,9 +404,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBEAE5',
   },
   deleteText: { color: '#D9534F', fontSize: 12, fontWeight: '600' },
+  retryBtn: { marginTop: 12, alignSelf: 'center' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   loadingText: { color: '#756F68' },
   emptyText: { color: '#A8A199', fontSize: 14 },
+  errorText: { color: '#D9534F', fontSize: 14, textAlign: 'center', lineHeight: 20 },
   fab: {
     position: 'absolute',
     bottom: 24,

@@ -1,4 +1,4 @@
-export type AuthMode = 'setup' | 'locked' | 'unlocked' | 'decoy';
+export type AuthMode = 'setup' | 'locked' | 'unlocked';
 
 export interface SecurityConfig {
   isConfigured: boolean;
@@ -13,7 +13,6 @@ export interface SecurityConfig {
   offlineOnly: boolean;
   highContrast: boolean;
   fullScreen: boolean;
-  securityQuestion: string;
 }
 
 export interface AccessLog {
@@ -28,7 +27,8 @@ export interface AuthState {
   isReady: boolean;
   mode: AuthMode;
   failedAttempts: number;
-  lockoutSeconds: number;
+  /** Timestamp (ms) ate quando o teclado fica bloqueado. 0 = sem bloqueio. */
+  lockoutUntil: number;
   lastAccessTime?: number;
   config: SecurityConfig;
 }

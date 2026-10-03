@@ -41,8 +41,15 @@ export function calculatePinStrength(pin: string): number {
   if (sequential.test(pin)) return 1;
   if (unique <= 2) return 1;
   if (unique === 3) return 2;
-  if (unique === 4 && pin.length === 4) return 3;
-  return 4;
+
+  // 4 digitos unicos: verifica se ha pares sequenciais adjacentes (ex: 1289, 7814)
+  const hasSequentialPair = /01|12|23|34|45|56|67|78|89|98|87|76|65|54|43|32|21|10/.test(pin);
+
+  if (hasSequentialPair) {
+    return 3; // Forte (4 digitos unicos, mas contem par sequencial)
+  }
+
+  return 4; // Muito forte (4 digitos unicos e sem pares sequenciais, ex: 8193, 2719)
 }
 
 const styles = StyleSheet.create({

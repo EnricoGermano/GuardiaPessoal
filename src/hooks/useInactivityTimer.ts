@@ -24,7 +24,9 @@ export function useInactivityTimer(
     }, 5000);
 
     const handleAppState = (state: AppStateStatus) => {
-      if (state === 'background' || state === 'inactive') {
+      // 'inactive' (iOS) dispara com central de notificacoes/dialogos do sistema;
+      // so tranca quando o app realmente vai para segundo plano.
+      if (state === 'background') {
         onTimeout();
       } else if (state === 'active') {
         resetTimer();

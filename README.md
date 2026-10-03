@@ -1,68 +1,55 @@
 # Guardião Pessoal - Cofre Digital Móvel Seguro
 
-O **Guardião Pessoal** é um cofre digital móvel desenvolvido em **React Native** com **Expo** e **TypeScript**, projetado para armazenar credenciais e dados confidenciais com máxima segurança, privacidade e operação **100% offline**.
+Cofre digital móvel seguro desenvolvido em React Native para armazenamento local e confidencial de senhas e credenciais, operando de forma 100% offline.
 
 ---
 
-## 🎯 Escopo da Sprint 1
+## Backlog do Produto (3 Sprints)
 
-A primeira sprint do projeto foca na fundação da arquitetura de segurança, autenticação primária por PIN mestre, persistência criptografada e gestão essencial de credenciais (CRUD).
+### Sprint 1 - Fundação de Segurança e Gestão de Credenciais
 
-### 📋 Histórias de Usuário Implementadas (US01 a US08)
-
-| ID | Prioridade | História de Usuário | Detalhes da Implementação |
-| :--- | :---: | :--- | :--- |
-| **US01** | Alta | **Setup Inicial do PIN Mestre**<br>Como novo usuário, quero cadastrar um PIN mestre numérico de 4 dígitos na primeira abertura do app. | • Validação estrita de 4 dígitos numéricos.<br>• Confirmação obrigatória do PIN digitado.<br>• Geração de Salt aleatório único e derivação de hash PBKDF2.<br>• Armazenamento seguro de chaves no `SecureStore`. |
-| **US02** | Alta | **Teclado Numérico Customizado e Bloqueio**<br>Como usuário, quero autenticar no aplicativo através de um teclado numérico (0-9). | • Teclado minimalista customizado integrado à tela de bloqueio.<br>• Feedback tátil por vibração ao errar.<br>• **Proteção anti-força bruta**: bloqueio de 5s após 3 erros, 30s após 5 erros e auto-wipe (limpeza de segurança) após 10 tentativas incorretas. |
-| **US03** | Alta | **Criptografia Forte em Repouso**<br>Como sistema, devo criptografar todas as credenciais locais com AES-256 e PBKDF2. | • Criptografia simétrica AES-256 em todas as credenciais antes da persistência local.<br>• Derivação de chave via PBKDF2 com 10.000 iterações.<br>• Checksum SHA-256 para validação de integridade contra corrupção. |
-| **US04** | Alta | **Cadastro de Novas Credenciais (CRUD)**<br>Como usuário, quero cadastrar uma nova credencial com serviço, login, senha, URL e prioridade. | • Formulário validado com campos de serviço, usuário/e-mail, senha e URL.<br>• Categorização e badge de importância (Alta, Média, Baixa).<br>• Dica opcional e alerta visual de atenção. |
-| **US05** | Alta | **Visualização com Senha Mascarada**<br>Como usuário, quero visualizar as senhas cadastradas protegidas por máscara padrão. | • Senhas ocultadas por bullets padrão (`••••••••`).<br>• Botão individual "Mostrar" para revelar temporariamente a senha.<br>• Ordenação rápida por Nome, Data de Criação e Prioridade. |
-| **US06** | Alta | **Edição e Exclusão com Confirmação**<br>Como usuário, quero editar ou excluir credenciais salvas sem risco de perda acidental. | • Modal de confirmação antes de remover qualquer item do cofre.<br>• Edição completa de credenciais existentes com atualização imediata no cofre. |
-| **US07** | Alta | **Cópia Rápida com Auto-Limpeza do Clipboard**<br>Como usuário, quero copiar usuário ou senha em 1 toque com limpeza automática. | • Botões dedicados "Copiar usuário" e "Copiar senha".<br>• Temporizador regressivo em background que limpa a área de transferência do aparelho em **30 segundos**, prevenindo vazamento de memória. |
-| **US08** | Alta | **Bloqueio Nativo de Captura de Tela (Anti-Print)**<br>Como usuário, quero que o app impeça prints e gravações de tela para proteção visual. | • Integração nativa via `expo-screen-capture` com a flag `FLAG_SECURE` do Android.<br>• Bloqueia atalhos de print screen e gravação de vídeo.<br>• Oculta o conteúdo do app na tela de multitarefa / aplicativos recentes. |
+| ID | Prioridade | User Story |
+| :--- | :---: | :--- |
+| **US01** | Alta | Como Usuário, quero cadastrar um PIN mestre numérico de 4 dígitos no primeiro acesso para proteger o cofre. |
+| **US02** | Alta | Como Usuário, quero autenticar no aplicativo através do PIN mestre com bloqueio e atraso de segurança após tentativas falhas. |
+| **US03** | Alta | Como Sistema, quero criptografar todos os dados locais em repouso com AES-256 e PBKDF2. |
+| **US04** | Alta | Como Usuário, quero cadastrar uma nova senha informando serviço, usuário, senha, URL e categoria. |
+| **US05** | Alta | Como Usuário, quero visualizar a lista de senhas salvas com a senha oculta e botão para revelar ou copiar com 1 toque. |
+| **US06** | Alta | Como Usuário, quero editar e excluir senhas existentes com confirmação de segurança. |
+| **US07** | Alta | Como Usuário, quero copiar usuário ou senha com limpeza automática da área de transferência em 30 segundos. |
+| **US08** | Alta | Como Usuário, quero que o aplicativo impeça capturas de tela (print) e gravações para evitar vazamento visual dos dados. |
 
 ---
 
-## 🔒 Princípios de Segurança da Sprint 1
+### Sprint 2 - Biometria, Geradores e Notas Confidenciais
 
-1. **Operação 100% Offline:** Nenhuma requisição externa ou telemetria é realizada. Todos os dados permanecem estritamente no armazenamento local do dispositivo.
-2. **Segurança em Memória:** Chaves descriptografadas são imediatamente descartadas da memória no momento em que o cofre é trancado.
-3. **Proteção Contra Espiões de Tela:** Modo de tela preta rápido acessível por toque longo no cabeçalho do cofre.
-
----
-
-## 🛠️ Tecnologias Utilizadas
-
-- **Framework:** [React Native](https://reactnative.dev/) com [Expo](https://expo.dev/) (SDK 57)
-- **Linguagem:** [TypeScript](https://www.typescriptlang.org/)
-- **Criptografia:** `crypto-js` (AES-256, PBKDF2, SHA-256)
-- **Armazenamento:** `@react-native-async-storage/async-storage` e `expo-secure-store`
-- **Área de Transferência:** `expo-clipboard`
-- **Proteção de Tela:** `expo-screen-capture` (`FLAG_SECURE`)
-- **Estilização:** StyleSheet nativo com design minimalista
+| ID | Prioridade | User Story |
+| :--- | :---: | :--- |
+| **US09** | Alta | Como Usuário, quero autenticar com sensor de impressão digital para desbloquear o cofre em menos de 500ms. |
+| **US10** | Média | Como Usuário, quero autenticar com reconhecimento facial via câmera frontal como método biométrico alternativo. |
+| **US11** | Alta | Como Usuário, quero gerar senhas fortes aleatórias de 8 a 32 caracteres com letras, números e símbolos especiais. |
+| **US12** | Média | Como Usuário, quero gerar senhas baseadas em palavras memoráveis (Diceware) fáceis de lembrar. |
+| **US13** | Alta | Como Usuário, quero cadastrar, editar e excluir notas pessoais confidenciais com criptografia individual. |
+| **US14** | Média | Como Usuário, quero vincular uma nota confidencial a uma senha específica e adicionar observações de segurança. |
+| **US15** | Alta | Como Usuário, quero pesquisar credenciais e notas por texto completo e tags instantaneamente. |
+| **US16** | Média | Como Usuário, quero filtrar senhas por categorias personalizadas (Pessoal, Trabalho, Finanças) com pílulas horizontais. |
+| **US17** | Baixa | Como Usuário, quero configurar auto-destruição para notas confidenciais e marcar anotações favoritas. |
 
 ---
 
-## 🚀 Como Executar o Projeto
+### Sprint 3 - Defesa Avançada, Auditoria e Portabilidade
 
-### Pré-requisitos
-- Node.js instalado (v18+)
-- Celular Android com o aplicativo **Expo Go** instalado (ou conectado via cabo USB com Depuração USB ativada)
-
-### 1. Instalar as dependências
-```bash
-npm install
-```
-
-### 2. Iniciar o ambiente de desenvolvimento
-```bash
-npx expo start
-```
-- Escaneie o QR Code exibido no terminal utilizando o aplicativo **Expo Go** no celular.
-- Ou pressione `a` no terminal para abrir no Emulador Android do computador.
-
-### 3. Instalar o APK diretamente via cabo USB
-Com o celular plugado via USB e a depuração ativada:
-```bash
-adb -d install -r caminho_do_arquivo.apk
-```
+| ID | Prioridade | User Story |
+| :--- | :---: | :--- |
+| **US18** | Alta | Como Usuário, quero cadastrar locais/zonas seguras (GPS) e bloquear o acesso ao cofre quando estiver fora dessas áreas. |
+| **US19** | Alta | Como Sistema, quero bloquear o acesso ao cofre automaticamente após período de inatividade configurável (1, 5 ou 15 min). |
+| **US20** | Alta | Como Usuário, quero visualizar um painel de diagnóstico de segurança com saúde do cofre e alertas de senhas fracas ou reutilizadas. |
+| **US21** | Alta | Como Usuário, quero definir uma senha de emergência/pânico que apaga todos os dados confidenciais sob coação. |
+| **US22** | Média | Como Usuário, quero ativar o modo de tela preta com toque no cabeçalho para esconder senhas de olhares curiosos. |
+| **US23** | Média | Como Usuário, quero consultar o registro de acessos e tentativas falhas com expiração automática em 7 dias. |
+| **US24** | Alta | Como Usuário, quero exportar e importar todas as senhas e notas em arquivo criptografado com senha de backup. |
+| **US25** | Baixa | Como Usuário, quero exportar um relatório de força das senhas e notas em texto simples quando explicitamente solicitado. |
+| **US26** | Média | Como Usuário, quero verificar se uma credencial foi exposta em vazamentos de dados conhecidos. |
+| **US27** | Baixa | Como Usuário, quero ativar o modo de compatibilidade visual com alto contraste para facilitar a leitura. |
+| **US28** | Alta | Como Usuário, quero utilizar o aplicativo em modo 100% offline garantindo que nenhum dado saia do aparelho. |
+| **US29** | Média | Como Usuário, quero alterar o PIN mestre a qualquer momento e gerenciar as preferências de segurança. |

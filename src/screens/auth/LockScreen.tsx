@@ -1,60 +1,81 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Alert, Vibration,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../../context/AuthContext';
-import { authenticateWithBiometrics, isBiometricAvailable } from '../../hooks/useBiometrics';
+import { useAuth, MAX_FAILED_ATTEMPTS } from '../../context/AuthContext';
 
 export function LockScreen() {
-  const { state, verifyPin, unlock, unlockDaily, wipeAll } = useAuth();
+  const { state, unlockWithPin } = useAuth();
   const [pin, setPin] = useState('');
-  const [biometricReady, setBiometricReady] = useState(false);
-  const [lockCountdown, setLockCountdown] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const busyRef = useRef(false);
 
+  // Contagem regressiva derivada do timestamp persistido (state.lockoutUntil).
+  // Quando o tempo acaba, o desbloqueio volta a funcionar automaticamente.
   useEffect(() => {
-    (async () => {
-      if (state.config.biometricsEnabled) {
-        const available = await isBiometricAvailable();
-        setBiometricReady(available);
-        if (available) {
-          tryBiometric();
+    if (state.lockoutUntil <= Date.now()) return;
+    setNow(Date.now());
+    const interval = setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= state.lockoutUntil) clearInterval(interval);
+    }, 250);
+    return () => clearInterval(interval);
+  }, [state.lockoutUntil]);
+
+  const lockCountdown = Math.max(0, Math.ceil((state.lockoutUntil - now) / 1000));
+  const isLocked = lockCountdown > 0;
+
+  const submitPin = async (inputPin: string) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+
+    // Deixa a UI desenhar o 4o ponto antes do PBKDF2 (sincrono) rodar.
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    let result;
+    try {
+      result = await unlockWithPin(inputPin);
+    } catch {
+      result = 'wrong' as const;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+      setPin('');
+    }
+
+    switch (result) {
+      case 'unlocked':
+        return;
+      case 'emergency':
+        Alert.alert('Dados apagados', 'Todos os dados foram removidos.');
+        return;
+      case 'wiped':
+        Alert.alert(
+          'Cofre apagado',
+          `Foram ${MAX_FAILED_ATTEMPTS} tentativas incorretas. Por seguranca, todos os dados foram removidos.`,
+        );
+        return;
+      case 'locked':
+        setNow(Date.now());
+        return;
+      case 'wrong': {
+        Vibration.vibrate(200);
+        const remaining = MAX_FAILED_ATTEMPTS - (state.failedAttempts + 1);
+        if (remaining > 0 && remaining <= 3) {
+          Alert.alert('PIN incorreto', `Restam ${remaining} tentativa(s) antes de apagar tudo.`);
         }
       }
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (state.lockoutSeconds > 0) {
-      setLockCountdown(state.lockoutSeconds);
-      const interval = setInterval(() => {
-        setLockCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
     }
-  }, [state.lockoutSeconds]);
-
-  const tryBiometric = useCallback(async () => {
-    const result = await authenticateWithBiometrics('Desbloqueie o Guardiao Pessoal');
-    if (result.success) {
-      await unlock('biometric');
-    }
-  }, [unlock]);
+  };
 
   const handleKeyPress = (val: string) => {
-    if (lockCountdown > 0) return;
+    if (isLocked || busy || !val) return;
     if (val === '<') {
       setPin(prev => prev.slice(0, -1));
-      return;
-    }
-    if (val === 'face') {
-      tryBiometric();
       return;
     }
     if (pin.length < 4) {
@@ -63,35 +84,6 @@ export function LockScreen() {
       if (nextPin.length === 4) {
         submitPin(nextPin);
       }
-    }
-  };
-
-  const submitPin = async (inputPin: string) => {
-    const result = await verifyPin(inputPin);
-    setPin('');
-
-    if (result === 'emergency') {
-      await wipeAll();
-      Alert.alert('Dados apagados', 'Todos os dados foram removidos.');
-      return;
-    }
-
-    if (result === 'master') {
-      await unlock(inputPin, false);
-      return;
-    }
-
-    if (result === 'daily') {
-      const ok = await unlockDaily(inputPin);
-      if (ok) return;
-      await unlock(inputPin, false);
-      return;
-    }
-
-    Vibration.vibrate(200);
-    const remaining = 10 - (state.failedAttempts + 1);
-    if (remaining > 0 && remaining <= 3) {
-      Alert.alert('PIN incorreto', `Restam ${remaining} tentativas antes de apagar tudo.`);
     }
   };
 
@@ -110,24 +102,26 @@ export function LockScreen() {
     ['1', '2', '3'],
     ['4', '5', '6'],
     ['7', '8', '9'],
-    ['face', '0', '<'],
+    ['', '0', '<'],
   ];
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <Text style={styles.appName}>Guardiao Pessoal</Text>
-        <Text style={styles.subtitle}>Digite seu PIN de 4 digitos</Text>
+        <Text style={styles.subtitle}>
+          {busy ? 'Verificando...' : 'Digite seu PIN de 4 digitos'}
+        </Text>
 
         {renderDots()}
 
-        {lockCountdown > 0 && (
+        {isLocked && (
           <Text style={styles.lockText}>
             Bloqueado por {lockCountdown}s
           </Text>
         )}
 
-        {state.failedAttempts > 0 && lockCountdown === 0 && (
+        {state.failedAttempts > 0 && !isLocked && (
           <Text style={styles.errorText}>
             {state.failedAttempts} tentativa(s) incorreta(s)
           </Text>
@@ -136,27 +130,23 @@ export function LockScreen() {
         <View style={styles.keypad}>
           {keypadRows.map((row, rIdx) => (
             <View key={rIdx} style={styles.keypadRow}>
-              {row.map(val => (
-                <TouchableOpacity
-                  key={val}
-                  style={styles.keyButton}
-                  onPress={() => handleKeyPress(val)}
-                  disabled={lockCountdown > 0}
-                >
-                  <Text style={[styles.keyText, val === 'face' && styles.faceText]}>
-                    {val === 'face' ? 'Face' : val}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {row.map((val, cIdx) =>
+                val === '' ? (
+                  <View key={`empty-${cIdx}`} style={styles.keyPlaceholder} />
+                ) : (
+                  <TouchableOpacity
+                    key={val}
+                    style={[styles.keyButton, (isLocked || busy) && styles.keyDisabled]}
+                    onPress={() => handleKeyPress(val)}
+                    disabled={isLocked || busy}
+                  >
+                    <Text style={styles.keyText}>{val}</Text>
+                  </TouchableOpacity>
+                )
+              )}
             </View>
           ))}
         </View>
-
-        {biometricReady && (
-          <TouchableOpacity style={styles.bioButton} onPress={tryBiometric}>
-            <Text style={styles.bioText}>Usar Impressao Digital</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </SafeAreaView>
   );
@@ -196,15 +186,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
   },
+  keyDisabled: { opacity: 0.4 },
+  keyPlaceholder: { width: 70, height: 70 },
   keyText: { color: '#1E1E1E', fontSize: 22, fontWeight: '600' },
-  faceText: { fontSize: 13, color: '#756F68' },
-  bioButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#B5824C',
-  },
-  bioText: { color: '#B5824C', fontSize: 14, fontWeight: '600' },
 });

@@ -1,48 +1,56 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import type { AuthState, SecurityConfig, AccessLog } from '../types/auth';
-import { hashPin, generateRandomHex, encryptData, decryptData } from '../crypto/aes';
+import {
+  hashPin, generateRandomHex, clearKeyCache,
+  PBKDF2_ITERATIONS, LEGACY_PBKDF2_ITERATIONS,
+} from '../crypto/aes';
 import {
   isVaultConfigured, setVaultConfigured,
   getMasterSalt, setMasterSalt,
   getMasterHash, setMasterHash,
-  getDailyHash, setDailyHash,
-  getDailyVaultKey, setDailyVaultKey,
   getEmergencyHash, setEmergencyHash,
-  setSecurityQuestion, setSecurityAnswerHash,
-  getSecurityQuestion, getSecurityAnswerHash,
+  getKdfIterations, setKdfIterations,
+  getAttemptState, setAttemptState,
   setSessionSecret, clearAllSecureStorage,
 } from '../storage/secureStorage';
 import { deleteVault, saveAccessLog } from '../storage/vaultStorage';
 
+/** Numero de erros que apaga o cofre. */
+export const MAX_FAILED_ATTEMPTS = 10;
+
+/** Tempo de bloqueio (s) apos N erros consecutivos. */
+export function lockoutSecondsFor(failedAttempts: number): number {
+  if (failedAttempts >= 5) return 30;
+  if (failedAttempts >= 3) return 5;
+  return 0;
+}
+
 const DEFAULT_CONFIG: SecurityConfig = {
   isConfigured: false,
-  biometricsEnabled: true,
-  faceRecognitionEnabled: true,
+  // Biometria pertence a Sprint 2 (US09/US10): desativada nesta entrega.
+  biometricsEnabled: false,
+  faceRecognitionEnabled: false,
   autoLockMinutes: 5,
   biometricPerItem: false,
   locationLockEnabled: false,
   offlineOnly: true,
   highContrast: false,
   fullScreen: false,
-  securityQuestion: '',
 };
 
 const initialState: AuthState = {
   isReady: false,
   mode: 'setup',
   failedAttempts: 0,
-  lockoutSeconds: 0,
+  lockoutUntil: 0,
   config: DEFAULT_CONFIG,
 };
 
 type Action =
-  | { type: 'INIT'; configured: boolean; config: SecurityConfig }
-  | { type: 'UNLOCK'; decoy?: boolean }
+  | { type: 'INIT'; configured: boolean; failedAttempts: number; lockoutUntil: number }
+  | { type: 'UNLOCK' }
   | { type: 'LOCK' }
-  | { type: 'FAIL_ATTEMPT' }
-  | { type: 'RESET_ATTEMPTS' }
-  | { type: 'SET_LOCKOUT'; seconds: number }
-  | { type: 'UPDATE_CONFIG'; config: Partial<SecurityConfig> }
+  | { type: 'FAIL_ATTEMPT'; failedAttempts: number; lockoutUntil: number }
   | { type: 'WIPE' };
 
 function reducer(state: AuthState, action: Action): AuthState {
@@ -52,31 +60,23 @@ function reducer(state: AuthState, action: Action): AuthState {
         ...state,
         isReady: true,
         mode: action.configured ? 'locked' : 'setup',
-        config: action.config,
+        failedAttempts: action.failedAttempts,
+        lockoutUntil: action.lockoutUntil,
+        config: { ...DEFAULT_CONFIG, isConfigured: action.configured },
       };
     case 'UNLOCK':
       return {
         ...state,
-        mode: action.decoy ? 'decoy' : 'unlocked',
+        mode: 'unlocked',
         failedAttempts: 0,
-        lockoutSeconds: 0,
+        lockoutUntil: 0,
         lastAccessTime: Date.now(),
+        config: { ...state.config, isConfigured: true },
       };
     case 'LOCK':
       return { ...state, mode: 'locked' };
-    case 'FAIL_ATTEMPT': {
-      const attempts = state.failedAttempts + 1;
-      let lockout = 0;
-      if (attempts >= 5) lockout = 30;
-      else if (attempts >= 3) lockout = 5;
-      return { ...state, failedAttempts: attempts, lockoutSeconds: lockout };
-    }
-    case 'RESET_ATTEMPTS':
-      return { ...state, failedAttempts: 0, lockoutSeconds: 0 };
-    case 'SET_LOCKOUT':
-      return { ...state, lockoutSeconds: action.seconds };
-    case 'UPDATE_CONFIG':
-      return { ...state, config: { ...state.config, ...action.config } };
+    case 'FAIL_ATTEMPT':
+      return { ...state, failedAttempts: action.failedAttempts, lockoutUntil: action.lockoutUntil };
     case 'WIPE':
       return { ...initialState, isReady: true, mode: 'setup' };
     default:
@@ -84,16 +84,22 @@ function reducer(state: AuthState, action: Action): AuthState {
   }
 }
 
+/**
+ * Resultado da tentativa de desbloqueio:
+ * - unlocked: PIN mestre correto, cofre aberto
+ * - wrong: PIN incorreto (tentativa contabilizada)
+ * - locked: ainda dentro do tempo de bloqueio (tentativa ignorada)
+ * - emergency: PIN de emergencia digitado, dados apagados
+ * - wiped: limite de tentativas atingido, dados apagados
+ */
+export type UnlockResult = 'unlocked' | 'wrong' | 'locked' | 'emergency' | 'wiped';
+
 interface AuthContextType {
   state: AuthState;
-  setupVault: (pin: string, emergencyPin: string, dailyPin: string | null, secQuestion: string, secAnswer: string) => Promise<void>;
-  verifyPin: (pin: string) => Promise<'master' | 'daily' | 'emergency' | false>;
-  unlock: (secret: string, decoy?: boolean) => Promise<void>;
-  unlockDaily: (dailyPin: string) => Promise<boolean>;
+  setupVault: (pin: string, emergencyPin: string) => Promise<void>;
+  unlockWithPin: (pin: string) => Promise<UnlockResult>;
   lock: () => void;
   wipeAll: () => Promise<void>;
-  changeMasterPin: (oldPin: string, newPin: string) => Promise<boolean>;
-  updateConfig: (config: Partial<SecurityConfig>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -104,51 +110,50 @@ export function useAuth() {
   return ctx;
 }
 
+async function logAccess(success: boolean, method: AccessLog['method'], detail?: string) {
+  try {
+    await saveAccessLog({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      timestamp: Date.now(),
+      success,
+      method,
+      detail,
+    });
+  } catch {
+    // Falha no log nunca deve impedir o login.
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
     (async () => {
       const configured = await isVaultConfigured();
-      dispatch({ type: 'INIT', configured, config: { ...DEFAULT_CONFIG, isConfigured: configured } });
+      const attempts = configured
+        ? await getAttemptState()
+        : { failedAttempts: 0, lockoutUntil: 0 };
+      dispatch({ type: 'INIT', configured, ...attempts });
     })();
   }, []);
 
-  const logAccess = useCallback(async (success: boolean, method: AccessLog['method'], detail?: string) => {
-    await saveAccessLog({
-      id: Date.now().toString(),
-      timestamp: Date.now(),
-      success,
-      method,
-      detail,
-    });
+  const wipeAll = useCallback(async () => {
+    await deleteVault();
+    await clearAllSecureStorage();
+    clearKeyCache();
+    dispatch({ type: 'WIPE' });
   }, []);
 
-  const setupVault = useCallback(async (
-    pin: string,
-    emergencyPin: string,
-    dailyPin: string | null,
-    secQuestion: string,
-    secAnswer: string,
-  ) => {
+  const setupVault = useCallback(async (pin: string, emergencyPin: string) => {
+    // Garante que nao sobrou nenhum cofre antigo que nao poderia ser aberto.
+    await deleteVault();
+
     const salt = await generateRandomHex(16);
-    const masterHash = hashPin(pin, salt);
-    const emergencyHash = hashPin(emergencyPin, salt);
-
     await setMasterSalt(salt);
-    await setMasterHash(masterHash);
-    await setEmergencyHash(emergencyHash);
-
-    if (dailyPin) {
-      const dHash = hashPin(dailyPin, salt);
-      await setDailyHash(dHash);
-      const encryptedMaster = await encryptData(pin, dailyPin);
-      await setDailyVaultKey(JSON.stringify(encryptedMaster));
-    }
-
-    await setSecurityQuestion(secQuestion);
-    const answerHash = hashPin(secAnswer.toLowerCase().trim(), salt);
-    await setSecurityAnswerHash(answerHash);
+    await setKdfIterations(PBKDF2_ITERATIONS);
+    await setMasterHash(hashPin(pin, salt, PBKDF2_ITERATIONS));
+    await setEmergencyHash(hashPin(emergencyPin, salt, PBKDF2_ITERATIONS));
+    await setAttemptState({ failedAttempts: 0, lockoutUntil: 0 });
 
     await setSessionSecret(pin);
     await setVaultConfigured(true);
@@ -156,100 +161,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'UNLOCK' });
   }, []);
 
-  const unlockDaily = useCallback(async (dailyPin: string): Promise<boolean> => {
-    const dailyVaultKeyStr = await getDailyVaultKey();
-    if (!dailyVaultKeyStr) return false;
-    try {
-      const bundle = JSON.parse(dailyVaultKeyStr);
-      const masterSecret = decryptData(bundle, dailyPin);
-      await setSessionSecret(masterSecret);
-      dispatch({ type: 'UNLOCK', decoy: false });
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
-
-  const verifyPin = useCallback(async (pin: string): Promise<'master' | 'daily' | 'emergency' | false> => {
-    if (state.lockoutSeconds > 0) return false;
+  const unlockWithPin = useCallback(async (pin: string): Promise<UnlockResult> => {
+    // Le o estado persistido (fonte da verdade) em vez do estado React,
+    // evitando closures desatualizadas e burla por reinicio do app.
+    const attempts = await getAttemptState();
+    if (Date.now() < attempts.lockoutUntil) return 'locked';
 
     const salt = await getMasterSalt();
-    if (!salt) return false;
+    if (!salt) return 'wrong';
 
-    const inputHash = hashPin(pin, salt);
+    const iterations = (await getKdfIterations()) ?? LEGACY_PBKDF2_ITERATIONS;
+    const inputHash = hashPin(pin, salt, iterations);
 
     const emergencyHash = await getEmergencyHash();
     if (emergencyHash && inputHash === emergencyHash) {
-      await logAccess(true, 'duress');
+      await wipeAll();
       return 'emergency';
     }
 
     const masterHash = await getMasterHash();
     if (masterHash && inputHash === masterHash) {
+      await setAttemptState({ failedAttempts: 0, lockoutUntil: 0 });
+      await setSessionSecret(pin);
       await logAccess(true, 'pin');
-      return 'master';
+      dispatch({ type: 'UNLOCK' });
+      return 'unlocked';
     }
 
-    const dailyHash = await getDailyHash();
-    if (dailyHash && inputHash === dailyHash) {
-      await logAccess(true, 'pin', 'daily');
-      return 'daily';
-    }
-
-    dispatch({ type: 'FAIL_ATTEMPT' });
-    await logAccess(false, 'pin');
-
-    if (state.failedAttempts + 1 >= 10) {
+    const failedAttempts = attempts.failedAttempts + 1;
+    if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
       await wipeAll();
+      return 'wiped';
     }
 
-    return false;
-  }, [state.lockoutSeconds, state.failedAttempts]);
-
-  const unlock = useCallback(async (secret: string, decoy = false) => {
-    await setSessionSecret(secret);
-    dispatch({ type: 'UNLOCK', decoy });
-  }, []);
+    const seconds = lockoutSecondsFor(failedAttempts);
+    const lockoutUntil = seconds > 0 ? Date.now() + seconds * 1000 : 0;
+    await setAttemptState({ failedAttempts, lockoutUntil });
+    await logAccess(false, 'pin');
+    dispatch({ type: 'FAIL_ATTEMPT', failedAttempts, lockoutUntil });
+    return 'wrong';
+  }, [wipeAll]);
 
   const lock = useCallback(() => {
+    // Descarta o PIN e as chaves derivadas da memoria ao trancar.
+    setSessionSecret(null).catch(() => {});
+    clearKeyCache();
     dispatch({ type: 'LOCK' });
-  }, []);
-
-  const wipeAll = useCallback(async () => {
-    await deleteVault();
-    await clearAllSecureStorage();
-    dispatch({ type: 'WIPE' });
-  }, []);
-
-  const changeMasterPin = useCallback(async (oldPin: string, newPin: string): Promise<boolean> => {
-    const salt = await getMasterSalt();
-    if (!salt) return false;
-
-    const oldHash = hashPin(oldPin, salt);
-    const masterHash = await getMasterHash();
-    if (oldHash !== masterHash) return false;
-
-    const newHash = hashPin(newPin, salt);
-    await setMasterHash(newHash);
-    await setSessionSecret(newPin);
-    return true;
-  }, []);
-
-  const updateConfig = useCallback((config: Partial<SecurityConfig>) => {
-    dispatch({ type: 'UPDATE_CONFIG', config });
   }, []);
 
   return (
     <AuthContext.Provider value={{
       state,
       setupVault,
-      verifyPin,
-      unlock,
-      unlockDaily,
+      unlockWithPin,
       lock,
       wipeAll,
-      changeMasterPin,
-      updateConfig,
     }}>
       {children}
     </AuthContext.Provider>

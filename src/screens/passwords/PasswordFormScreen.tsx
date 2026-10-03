@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, Switch,
   StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert,
@@ -12,9 +12,10 @@ import type { ImportanceLevel, PasswordItem } from '../../types/vault';
 interface Props {
   onDone: () => void;
   editingItem?: PasswordItem | null;
+  onActivity?: () => void;
 }
 
-export function PasswordFormScreen({ onDone, editingItem }: Props) {
+export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
   const { vault, addPassword, updatePassword } = useVault();
 
   const [service, setService] = useState(editingItem?.service || '');
@@ -28,8 +29,14 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [genLength, setGenLength] = useState(16);
   const [genSymbols, setGenSymbols] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const notifyActivity = useCallback(() => {
+    if (onActivity) onActivity();
+  }, [onActivity]);
 
   const handleGenerate = () => {
+    notifyActivity();
     try {
       const pwd = generateRandomPassword({
         length: genLength,
@@ -46,8 +53,9 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
   };
 
   const handleGenerateWords = () => {
+    notifyActivity();
     try {
-      const pwd = generateWordPassword(4);
+      const pwd = generateWordPassword(4, '-', genSymbols);
       setPassword(pwd);
       setShowPassword(true);
     } catch (err: any) {
@@ -55,53 +63,88 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
     }
   };
 
-  const handleSave = async () => {
+  const executeSave = async () => {
+    setSaving(true);
+    try {
+      if (editingItem) {
+        await updatePassword(editingItem.id, {
+          service: service.trim(),
+          username: username.trim(),
+          password,
+          url: url.trim() || undefined,
+          category,
+          importance,
+          hint: hint.trim() || undefined,
+          warning: warning.trim() || undefined,
+        });
+      } else {
+        await addPassword({
+          service: service.trim(),
+          username: username.trim(),
+          password,
+          url: url.trim() || undefined,
+          category,
+          tags: [],
+          importance,
+          hint: hint.trim() || undefined,
+          warning: warning.trim() || undefined,
+        });
+      }
+      onDone();
+    } catch (err: any) {
+      Alert.alert('Erro ao salvar', err?.message || 'Falha ao gravar no cofre.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSave = () => {
+    notifyActivity();
     if (!service.trim()) return Alert.alert('Erro', 'Informe o nome do servico.');
     if (!username.trim()) return Alert.alert('Erro', 'Informe o usuario.');
     if (!password.trim()) return Alert.alert('Erro', 'Informe ou gere uma senha.');
 
+    // US06: Confirmacao de seguranca para edicao de credenciais existentes
     if (editingItem) {
-      await updatePassword(editingItem.id, {
-        service: service.trim(),
-        username: username.trim(),
-        password,
-        url: url.trim() || undefined,
-        category,
-        importance,
-        hint: hint.trim() || undefined,
-        warning: warning.trim() || undefined,
-      });
+      Alert.alert(
+        'Confirmar alteracao',
+        `Deseja salvar as alteracoes na credencial "${service.trim()}"?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Salvar', onPress: executeSave },
+        ]
+      );
     } else {
-      await addPassword({
-        service: service.trim(),
-        username: username.trim(),
-        password,
-        url: url.trim() || undefined,
-        category,
-        tags: [],
-        importance,
-        hint: hint.trim() || undefined,
-        warning: warning.trim() || undefined,
-      });
+      executeSave();
     }
-
-    onDone();
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={styles.container}
+      onStartShouldSetResponderCapture={() => {
+        notifyActivity();
+        return false;
+      }}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
       >
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={notifyActivity}
+        >
           <View style={styles.header}>
-            <TouchableOpacity onPress={onDone}>
+            <TouchableOpacity onPress={onDone} disabled={saving}>
               <Text style={styles.cancelText}>Cancelar</Text>
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{editingItem ? 'Editar Senha' : 'Nova Credencial'}</Text>
-            <TouchableOpacity onPress={handleSave}>
-              <Text style={styles.saveText}>Salvar</Text>
+            <TouchableOpacity onPress={handleSave} disabled={saving}>
+              <Text style={[styles.saveText, saving && styles.saveTextDisabled]}>
+                {saving ? 'Salvando...' : 'Salvar'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -111,7 +154,7 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
               <TextInput
                 style={styles.input}
                 value={service}
-                onChangeText={setService}
+                onChangeText={t => { notifyActivity(); setService(t); }}
                 placeholder="Ex: Google"
                 placeholderTextColor="#A8A199"
               />
@@ -122,7 +165,7 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
               <TextInput
                 style={styles.input}
                 value={username}
-                onChangeText={setUsername}
+                onChangeText={t => { notifyActivity(); setUsername(t); }}
                 placeholder="exemplo@gmail.com"
                 placeholderTextColor="#A8A199"
                 autoCapitalize="none"
@@ -135,7 +178,7 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
                 <TextInput
                   style={[styles.input, styles.flex]}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={t => { notifyActivity(); setPassword(t); }}
                   secureTextEntry={!showPassword}
                   placeholder="Digite ou gere uma senha"
                   placeholderTextColor="#A8A199"
@@ -143,7 +186,7 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
                 />
                 <TouchableOpacity
                   style={styles.eyeButton}
-                  onPress={() => setShowPassword(!showPassword)}
+                  onPress={() => { notifyActivity(); setShowPassword(!showPassword); }}
                 >
                   <Text style={styles.eyeText}>{showPassword ? 'Ocultar' : 'Mostrar'}</Text>
                 </TouchableOpacity>
@@ -163,13 +206,13 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
             <View style={styles.genOptions}>
               <Text style={styles.smallLabel}>Tamanho da senha: {genLength}</Text>
               <View style={styles.lengthRow}>
-                <TouchableOpacity onPress={() => setGenLength(Math.max(8, genLength - 1))}>
+                <TouchableOpacity onPress={() => { notifyActivity(); setGenLength(Math.max(8, genLength - 1)); }}>
                   <Text style={styles.lengthBtn}>-</Text>
                 </TouchableOpacity>
                 <View style={styles.lengthBar}>
                   <View style={[styles.lengthFill, { width: `${((genLength - 8) / 24) * 100}%` }]} />
                 </View>
-                <TouchableOpacity onPress={() => setGenLength(Math.min(32, genLength + 1))}>
+                <TouchableOpacity onPress={() => { notifyActivity(); setGenLength(Math.min(32, genLength + 1)); }}>
                   <Text style={styles.lengthBtn}>+</Text>
                 </TouchableOpacity>
               </View>
@@ -177,7 +220,7 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
                 <Text style={styles.smallLabel}>Incluir Simbolos</Text>
                 <Switch
                   value={genSymbols}
-                  onValueChange={setGenSymbols}
+                  onValueChange={v => { notifyActivity(); setGenSymbols(v); }}
                   trackColor={{ true: '#B5824C', false: '#E6DFD5' }}
                   thumbColor={genSymbols ? '#FFFFFF' : '#F4F1EA'}
                 />
@@ -189,7 +232,7 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
               <TextInput
                 style={styles.input}
                 value={url}
-                onChangeText={setUrl}
+                onChangeText={t => { notifyActivity(); setUrl(t); }}
                 placeholder="https://..."
                 placeholderTextColor="#A8A199"
                 autoCapitalize="none"
@@ -204,7 +247,7 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
                   <TouchableOpacity
                     key={c.id}
                     style={[styles.catChip, category === c.id && styles.catChipActive]}
-                    onPress={() => setCategory(c.id)}
+                    onPress={() => { notifyActivity(); setCategory(c.id); }}
                   >
                     <Text style={[styles.catText, category === c.id && styles.catTextActive]}>
                       {c.name}
@@ -224,7 +267,7 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
                       styles.catChip,
                       importance === level && styles.catChipActive,
                     ]}
-                    onPress={() => setImportance(level)}
+                    onPress={() => { notifyActivity(); setImportance(level); }}
                   >
                     <Text style={[styles.catText, importance === level && styles.catTextActive]}>
                       {level.charAt(0).toUpperCase() + level.slice(1)}
@@ -239,7 +282,7 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
               <TextInput
                 style={styles.input}
                 value={hint}
-                onChangeText={setHint}
+                onChangeText={t => { notifyActivity(); setHint(t); }}
                 placeholder="Uma pista para lembrar da senha"
                 placeholderTextColor="#A8A199"
               />
@@ -250,7 +293,7 @@ export function PasswordFormScreen({ onDone, editingItem }: Props) {
               <TextInput
                 style={styles.input}
                 value={warning}
-                onChangeText={setWarning}
+                onChangeText={t => { notifyActivity(); setWarning(t); }}
                 placeholder="Lembrete exibido ao ver esta senha"
                 placeholderTextColor="#A8A199"
               />
@@ -276,6 +319,7 @@ const styles = StyleSheet.create({
   headerTitle: { color: '#1E1E1E', fontSize: 18, fontWeight: '700' },
   cancelText: { color: '#756F68', fontSize: 15 },
   saveText: { color: '#B5824C', fontSize: 15, fontWeight: '700' },
+  saveTextDisabled: { opacity: 0.5 },
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,

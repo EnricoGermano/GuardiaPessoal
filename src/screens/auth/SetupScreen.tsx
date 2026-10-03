@@ -7,7 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { PasswordStrengthBar, calculatePinStrength } from '../../components/PasswordStrengthBar';
 
-type Step = 'pin' | 'confirm' | 'emergency' | 'security' | 'done';
+type Step = 'pin' | 'confirm' | 'emergency';
+
+const STEPS: Step[] = ['pin', 'confirm', 'emergency'];
 
 export function SetupScreen() {
   const { setupVault } = useAuth();
@@ -16,8 +18,6 @@ export function SetupScreen() {
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [emergencyPin, setEmergencyPin] = useState('');
-  const [secQuestion, setSecQuestion] = useState('');
-  const [secAnswer, setSecAnswer] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handlePinInput = (text: string, setter: (v: string) => void) => {
@@ -29,6 +29,13 @@ export function SetupScreen() {
     switch (step) {
       case 'pin':
         if (pin.length < 4) return Alert.alert('Erro', 'Digite 4 digitos.');
+        if (calculatePinStrength(pin) <= 1) {
+          return Alert.alert(
+            'PIN muito fraco',
+            'Evite digitos repetidos ou sequencias (ex: 0000, 1234, 1122).',
+          );
+        }
+        setConfirmPin('');
         setStep('confirm');
         break;
       case 'confirm':
@@ -38,10 +45,12 @@ export function SetupScreen() {
       case 'emergency':
         if (emergencyPin.length < 4) return Alert.alert('Erro', 'Digite 4 digitos.');
         if (emergencyPin === pin) return Alert.alert('Erro', 'Deve ser diferente do PIN principal.');
-        setStep('security');
-        break;
-      case 'security':
-        if (!secQuestion.trim() || !secAnswer.trim()) return Alert.alert('Erro', 'Preencha a pergunta e resposta.');
+        if (calculatePinStrength(emergencyPin) <= 1) {
+          return Alert.alert(
+            'PIN de emergencia muito fraco',
+            'Evite digitos repetidos ou sequencias (ex: 0000, 1111, 1234, 1122).'
+          );
+        }
         finishSetup();
         break;
     }
@@ -49,18 +58,14 @@ export function SetupScreen() {
 
   const finishSetup = async () => {
     setLoading(true);
+    // Deixa a UI mostrar "Configurando..." antes do PBKDF2 (sincrono).
+    await new Promise(resolve => setTimeout(resolve, 50));
     try {
-      await setupVault(
-        pin,
-        emergencyPin,
-        null,
-        secQuestion.trim(),
-        secAnswer.trim(),
-      );
+      await setupVault(pin, emergencyPin);
     } catch (e) {
       Alert.alert('Erro', 'Falha ao configurar o cofre.');
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const renderStep = () => {
@@ -121,30 +126,7 @@ export function SetupScreen() {
               placeholderTextColor="#A8A199"
               autoFocus
             />
-          </>
-        );
-      case 'security':
-        return (
-          <>
-            <Text style={styles.title}>Pergunta de Seguranca</Text>
-            <Text style={styles.subtitle}>
-              Caso a biometria e o PIN nao funcionem, essa pergunta sera usada como fallback.
-            </Text>
-            <TextInput
-              style={styles.textInput}
-              value={secQuestion}
-              onChangeText={setSecQuestion}
-              placeholder="Ex: Nome do seu primeiro pet?"
-              placeholderTextColor="#A8A199"
-            />
-            <TextInput
-              style={styles.textInput}
-              value={secAnswer}
-              onChangeText={setSecAnswer}
-              placeholder="Resposta"
-              placeholderTextColor="#A8A199"
-              secureTextEntry
-            />
+            {emergencyPin.length > 0 && <PasswordStrengthBar score={calculatePinStrength(emergencyPin)} />}
           </>
         );
     }
@@ -161,7 +143,7 @@ export function SetupScreen() {
           <View style={styles.header}>
             <Text style={styles.appName}>Guardiao Pessoal</Text>
             <Text style={styles.stepIndicator}>
-              {step === 'pin' ? 'Passo 1 de 4' : step === 'confirm' ? 'Passo 2 de 4' : step === 'emergency' ? 'Passo 3 de 4' : 'Passo 4 de 4'}
+              Passo {STEPS.indexOf(step) + 1} de {STEPS.length}
             </Text>
           </View>
 
@@ -175,17 +157,16 @@ export function SetupScreen() {
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Configurando...' : step === 'security' ? 'Finalizar' : 'Continuar'}
+              {loading ? 'Configurando...' : step === 'emergency' ? 'Finalizar' : 'Continuar'}
             </Text>
           </TouchableOpacity>
 
-          {step !== 'pin' && (
+          {step !== 'pin' && !loading && (
             <TouchableOpacity
               style={styles.backButton}
               onPress={() => {
-                const steps: Step[] = ['pin', 'confirm', 'emergency', 'security'];
-                const idx = steps.indexOf(step);
-                if (idx > 0) setStep(steps[idx - 1]);
+                const idx = STEPS.indexOf(step);
+                if (idx > 0) setStep(STEPS[idx - 1]);
               }}
             >
               <Text style={styles.backText}>Voltar</Text>

@@ -31,14 +31,16 @@ function getSecureBytes(count: number): Uint8Array {
       }
     }
   } catch {
-    // Ignora erro nativo e usa geracao de entropia segura via Math.random
+    // Falha ou indisponivel no runtime especifico
   }
 
-  const fallback = new Uint8Array(count);
-  for (let i = 0; i < count; i++) {
-    fallback[i] = Math.floor(Math.random() * 256);
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.getRandomValues) {
+    const bytes = new Uint8Array(count);
+    globalThis.crypto.getRandomValues(bytes);
+    return bytes;
   }
-  return fallback;
+
+  throw new Error('Gerador criptografico seguro indisponivel no dispositivo.');
 }
 
 export function generateRandomPassword(options: GeneratorOptions): string {
@@ -59,15 +61,18 @@ export function generateRandomPassword(options: GeneratorOptions): string {
   return password;
 }
 
-export function generateWordPassword(wordCount = 4, separator = '-'): string {
-  const bytes = getSecureBytes(wordCount + 1);
+const WORD_SYMBOLS = '!@#$%&*?+=';
+
+export function generateWordPassword(wordCount = 4, separator = '-', includeSymbols = false): string {
+  const bytes = getSecureBytes(wordCount + 2);
   const words: string[] = [];
   for (let i = 0; i < wordCount; i++) {
     words.push(WORDLIST_PT[bytes[i] % WORDLIST_PT.length]);
   }
 
   const num = (bytes[wordCount] % 99) + 1;
-  return words.join(separator) + separator + num;
+  const symbol = includeSymbols ? WORD_SYMBOLS[bytes[wordCount + 1] % WORD_SYMBOLS.length] : '';
+  return words.join(separator) + separator + num + symbol;
 }
 
 export function evaluateStrength(password: string): number {
