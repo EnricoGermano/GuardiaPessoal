@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, Switch,
-  StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert,
+  StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVault } from '../../context/VaultContext';
 import { generateRandomPassword, generateWordPassword, evaluateStrength } from '../../crypto/generator';
 import { PasswordStrengthBar } from '../../components/PasswordStrengthBar';
@@ -16,6 +16,8 @@ interface Props {
 }
 
 export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
+  const insets = useSafeAreaInsets();
+  const topPad = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0);
   const { vault, addPassword, updatePassword } = useVault();
 
   const [service, setService] = useState(editingItem?.service || '');
@@ -136,12 +138,24 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
           keyboardShouldPersistTaps="handled"
           onScrollBeginDrag={notifyActivity}
         >
-          <View style={styles.header}>
-            <TouchableOpacity onPress={onDone} disabled={saving}>
-              <Text style={styles.cancelText}>Cancelar</Text>
+          <View style={[styles.header, { paddingTop: Math.max(topPad, 12) + 6 }]}>
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={onDone}
+              disabled={saving}
+              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelText}>← Voltar</Text>
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{editingItem ? 'Editar Senha' : 'Nova Credencial'}</Text>
-            <TouchableOpacity onPress={handleSave} disabled={saving}>
+            <TouchableOpacity
+              style={[styles.headerBtn, styles.saveBtn]}
+              onPress={handleSave}
+              disabled={saving}
+              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+              activeOpacity={0.7}
+            >
               <Text style={[styles.saveText, saving && styles.saveTextDisabled]}>
                 {saving ? 'Salvando...' : 'Salvar'}
               </Text>
@@ -319,9 +333,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingTop: 8,
   },
-  headerTitle: { color: '#1E1E1E', fontSize: 18, fontWeight: '700' },
-  cancelText: { color: '#756F68', fontSize: 15 },
-  saveText: { color: '#B5824C', fontSize: 15, fontWeight: '700' },
+  headerBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  saveBtn: {
+    backgroundColor: '#FFF9EE',
+    borderWidth: 1,
+    borderColor: '#EED8A1',
+  },
+  headerTitle: { color: '#1E1E1E', fontSize: 17, fontWeight: '700' },
+  cancelText: { color: '#756F68', fontSize: 15, fontWeight: '600' },
+  saveText: { color: '#996515', fontSize: 15, fontWeight: '700' },
   saveTextDisabled: { opacity: 0.5 },
   card: {
     backgroundColor: '#FFFFFF',

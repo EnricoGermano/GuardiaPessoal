@@ -6,11 +6,13 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Alert,
   Switch,
+  Platform,
+  StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVault } from '../../context/VaultContext';
 import type { NoteItem } from '../../types/vault';
 
@@ -25,6 +27,8 @@ export const NoteFormModal: React.FC<NoteFormModalProps> = ({
   editingItem,
   onClose,
 }) => {
+  const insets = useSafeAreaInsets();
+  const topPad = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0);
   const { vault, addNote, updateNote, deleteNote } = useVault();
 
   const [title, setTitle] = useState('');
@@ -109,16 +113,26 @@ export const NoteFormModal: React.FC<NoteFormModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
-            <Text style={styles.cancelText}>Cancelar</Text>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={styles.safeArea}>
+        <View style={[styles.header, { paddingTop: Math.max(topPad, 12) + 6 }]}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.headerBtn}
+            hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cancelText}>← Voltar</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
             {editingItem ? 'Editar Nota' : 'Nova Nota Confidencial'}
           </Text>
-          <TouchableOpacity onPress={handleSave} style={styles.headerBtn}>
+          <TouchableOpacity
+            onPress={handleSave}
+            style={[styles.headerBtn, styles.saveBtn]}
+            hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+            activeOpacity={0.7}
+          >
             <Text style={styles.saveText}>Salvar</Text>
           </TouchableOpacity>
         </View>
@@ -225,7 +239,7 @@ export const NoteFormModal: React.FC<NoteFormModalProps> = ({
             )}
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };
@@ -237,13 +251,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderColor: '#EFEAE2',
     backgroundColor: '#FFFFFF',
   },
-  headerBtn: { padding: 4 },
-  cancelText: { color: '#8A8175', fontSize: 15 },
+  headerBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  saveBtn: {
+    backgroundColor: '#FFF9EE',
+    borderWidth: 1,
+    borderColor: '#EED8A1',
+  },
+  cancelText: { color: '#756F68', fontSize: 15, fontWeight: '600' },
   saveText: { color: '#996515', fontSize: 15, fontWeight: '700' },
   headerTitle: { fontSize: 16, fontWeight: '700', color: '#1E1E1E' },
   content: { padding: 16 },

@@ -4,13 +4,15 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   TextInput,
   Alert,
   Switch,
+  Platform,
+  StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 
 interface SettingsModalProps {
@@ -19,6 +21,8 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }) => {
+  const insets = useSafeAreaInsets();
+  const topPad = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0);
   const { state, changeMasterPin, updateConfig, wipeAll } = useAuth();
 
   const [oldPin, setOldPin] = useState('');
@@ -62,14 +66,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <Text style={styles.closeText}>Fechar</Text>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={styles.safeArea}>
+        <View style={[styles.header, { paddingTop: Math.max(topPad, 12) + 6 }]}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.closeBtn}
+            hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.closeText}>← Voltar</Text>
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Configurações de Segurança</Text>
-          <View style={{ width: 40 }} />
+          <View style={{ width: 60 }} />
         </View>
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -181,7 +190,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };
@@ -193,13 +202,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderColor: '#EFEAE2',
     backgroundColor: '#FFFFFF',
   },
-  closeBtn: { padding: 4 },
-  closeText: { fontSize: 14, color: '#8A8175', fontWeight: '600' },
+  closeBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  closeText: { fontSize: 15, color: '#756F68', fontWeight: '600' },
   headerTitle: { fontSize: 16, fontWeight: '700', color: '#1E1E1E' },
   content: { padding: 16 },
   sectionCard: {
