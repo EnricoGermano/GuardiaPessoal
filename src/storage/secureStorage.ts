@@ -10,6 +10,7 @@ const KEY_FAILED_ATTEMPTS = 'gp_failed_attempts';
 const KEY_LOCKOUT_UNTIL = 'gp_lockout_until';
 const KEY_DEVICE_PEPPER = 'gp_device_pepper';
 const KEY_LOG_KEY = 'gp_log_key';
+const KEY_BIO_PIN = 'gp_bio_pin';
 
 // Chaves de versoes anteriores: apenas removidas no wipe / ao iniciar sessao.
 const LEGACY_KEYS = [
@@ -129,6 +130,22 @@ export async function setSessionSecret(secret: string | null): Promise<void> {
   }
 }
 
+export async function getBioPin(): Promise<string | null> {
+  return SecureStore.getItemAsync(KEY_BIO_PIN);
+}
+
+export async function setBioPin(pin: string | null): Promise<void> {
+  if (pin) {
+    await SecureStore.setItemAsync(KEY_BIO_PIN, pin);
+  } else {
+    try {
+      await SecureStore.deleteItemAsync(KEY_BIO_PIN);
+    } catch {
+      // ignora
+    }
+  }
+}
+
 export async function clearAllSecureStorage(): Promise<void> {
   sessionSecret = null;
   const keys = [
@@ -141,6 +158,7 @@ export async function clearAllSecureStorage(): Promise<void> {
     KEY_LOCKOUT_UNTIL,
     KEY_DEVICE_PEPPER,
     KEY_LOG_KEY,
+    KEY_BIO_PIN,
     ...LEGACY_KEYS,
   ];
 

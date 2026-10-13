@@ -1,15 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Alert, Vibration,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth, MAX_FAILED_ATTEMPTS } from '../../context/AuthContext';
+import { authenticateWithBiometrics, isBiometricAvailable } from '../../hooks/useBiometrics';
+import { FaceAuthModal } from '../../components/FaceAuthModal';
 
 export function LockScreen() {
-  const { state, unlockWithPin } = useAuth();
+  const { state, unlockWithPin, unlockWithBiometrics, unlockWithFace } = useAuth();
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [biometricReady, setBiometricReady] = useState(false);
+  const [faceModalVisible, setFaceModalVisible] = useState(false);
   const busyRef = useRef(false);
 
   // Contagem regressiva derivada do timestamp persistido (state.lockoutUntil).
@@ -27,6 +31,29 @@ export function LockScreen() {
 
   const lockCountdown = Math.max(0, Math.ceil((state.lockoutUntil - now) / 1000));
   const isLocked = lockCountdown > 0;
+
+  const tryBiometric = useCallback(async () => {
+    if (isLocked || busyRef.current) return;
+    const res = await authenticateWithBiometrics('Desbloqueie o Guardião Pessoal');
+    if (res.success) {
+      const ok = await unlockWithBiometrics();
+      if (!ok) {
+        Alert.alert('PIN Necessário', 'Digite o PIN mestre para desbloquear.');
+      }
+    }
+  }, [isLocked, unlockWithBiometrics]);
+
+  useEffect(() => {
+    (async () => {
+      if (state.config.biometricsEnabled) {
+        const available = await isBiometricAvailable();
+        setBiometricReady(available);
+        if (available && !isLocked) {
+          tryBiometric();
+        }
+      }
+    })();
+  }, [state.config.biometricsEnabled, isLocked, tryBiometric]);
 
   const submitPin = async (inputPin: string) => {
     if (busyRef.current) return;
@@ -78,6 +105,10 @@ export function LockScreen() {
       setPin(prev => prev.slice(0, -1));
       return;
     }
+    if (val === 'face') {
+      setFaceModalVisible(true);
+      return;
+    }
     if (pin.length < 4) {
       const nextPin = pin + val;
       setPin(nextPin);
@@ -102,15 +133,15 @@ export function LockScreen() {
     ['1', '2', '3'],
     ['4', '5', '6'],
     ['7', '8', '9'],
-    ['', '0', '<'],
+    [state.config.faceRecognitionEnabled ? 'face' : '', '0', '<'],
   ];
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.appName}>Guardiao Pessoal</Text>
+        <Text style={styles.appName}>Guardião Pessoal</Text>
         <Text style={styles.subtitle}>
-          {busy ? 'Verificando...' : 'Digite seu PIN de 4 digitos'}
+          {busy ? 'Verificando...' : 'Digite seu PIN de 4 dígitos'}
         </Text>
 
         {renderDots()}
@@ -136,17 +167,45 @@ export function LockScreen() {
                 ) : (
                   <TouchableOpacity
                     key={val}
-                    style={[styles.keyButton, (isLocked || busy) && styles.keyDisabled]}
+                    style={[
+                      styles.keyButton,
+                      (isLocked || busy) && styles.keyDisabled,
+                      val === 'face' && styles.faceButton,
+                    ]}
                     onPress={() => handleKeyPress(val)}
                     disabled={isLocked || busy}
                   >
-                    <Text style={styles.keyText}>{val}</Text>
+                    <Text style={[styles.keyText, val === 'face' && styles.faceText]}>
+                      {val === 'face' ? 'Face' : val}
+                    </Text>
                   </TouchableOpacity>
                 )
               )}
             </View>
           ))}
         </View>
+
+        {biometricReady && state.config.biometricsEnabled && (
+          <TouchableOpacity
+            style={[styles.bioButton, (isLocked || busy) && styles.keyDisabled]}
+            onPress={tryBiometric}
+            disabled={isLocked || busy}
+          >
+            <Text style={styles.bioText}>Usar Impressão Digital</Text>
+          </TouchableOpacity>
+        )}
+
+        <FaceAuthModal
+          visible={faceModalVisible}
+          onClose={() => setFaceModalVisible(false)}
+          onSuccess={async () => {
+            setFaceModalVisible(false);
+            const ok = await unlockWithFace();
+            if (!ok) {
+              Alert.alert('PIN Necessário', 'Digite o PIN mestre para desbloquear.');
+            }
+          }}
+        />
       </View>
     </SafeAreaView>
   );
@@ -169,7 +228,7 @@ const styles = StyleSheet.create({
   dotFilled: { backgroundColor: '#B5824C', borderColor: '#B5824C' },
   lockText: { color: '#D9534F', fontSize: 14, marginBottom: 12, fontWeight: '600' },
   errorText: { color: '#D9822B', fontSize: 13, marginBottom: 12, fontWeight: '600' },
-  keypad: { width: '100%', maxWidth: 280, gap: 14, marginBottom: 24 },
+  keypad: { width: '100%', maxWidth: 280, gap: 14, marginBottom: 20 },
   keypadRow: { flexDirection: 'row', justifyContent: 'space-between' },
   keyButton: {
     width: 70,
@@ -186,7 +245,22 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
   },
+  faceButton: {
+    backgroundColor: '#FFF9EE',
+    borderColor: '#EED8A1',
+  },
   keyDisabled: { opacity: 0.4 },
   keyPlaceholder: { width: 70, height: 70 },
   keyText: { color: '#1E1E1E', fontSize: 22, fontWeight: '600' },
+  faceText: { fontSize: 13, color: '#996515', fontWeight: '700' },
+  bioButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#B5824C',
+    marginTop: 8,
+  },
+  bioText: { color: '#B5824C', fontSize: 14, fontWeight: '600' },
 });

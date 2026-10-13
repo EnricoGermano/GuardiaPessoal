@@ -2,11 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { encryptData, decryptData, encryptWithRawKey, decryptWithRawKey } from '../crypto/aes';
 import type { EncryptedBundle } from '../crypto/aes';
 import type { VaultData } from '../types/vault';
-import type { AccessLog } from '../types/auth';
+import type { AccessLog, SecurityConfig } from '../types/auth';
 import { getDevicePepper, getLogKey } from './secureStorage';
 
 const VAULT_KEY = 'gp_vault_data';
 const LOGS_KEY = 'gp_access_logs';
+const CONFIG_KEY = 'gp_security_config';
 // Chaves de versoes anteriores (dados em texto puro), removidas no wipe.
 const LEGACY_KEYS = ['gp_decoy_data', 'gp_user_config'];
 
@@ -64,7 +65,24 @@ export async function loadVault(pin: string): Promise<VaultData> {
 }
 
 export async function deleteVault(): Promise<void> {
-  await AsyncStorage.multiRemove([VAULT_KEY, LOGS_KEY, ...LEGACY_KEYS]);
+  await AsyncStorage.multiRemove([VAULT_KEY, LOGS_KEY, CONFIG_KEY, ...LEGACY_KEYS]);
+}
+
+// ---------- Configurações de Segurança ----------
+
+export async function saveSecurityConfig(config: Partial<SecurityConfig>): Promise<void> {
+  const current = await loadSecurityConfig();
+  const merged = { ...current, ...config };
+  await AsyncStorage.setItem(CONFIG_KEY, JSON.stringify(merged));
+}
+
+export async function loadSecurityConfig(): Promise<Partial<SecurityConfig>> {
+  try {
+    const raw = await AsyncStorage.getItem(CONFIG_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
 }
 
 // ---------- Registro de acessos (criptografado em repouso) ----------

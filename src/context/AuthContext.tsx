@@ -12,8 +12,12 @@ import {
   getKdfIterations, setKdfIterations,
   getAttemptState, setAttemptState,
   setSessionSecret, clearAllSecureStorage,
+  getBioPin, setBioPin,
 } from '../storage/secureStorage';
-import { deleteVault, saveAccessLog } from '../storage/vaultStorage';
+import {
+  deleteVault, saveAccessLog, saveVault, loadVault,
+  saveSecurityConfig, loadSecurityConfig,
+} from '../storage/vaultStorage';
 
 /** Numero de erros que apaga o cofre. */
 export const MAX_FAILED_ATTEMPTS = 10;
@@ -27,9 +31,8 @@ export function lockoutSecondsFor(failedAttempts: number): number {
 
 const DEFAULT_CONFIG: SecurityConfig = {
   isConfigured: false,
-  // Biometria pertence a Sprint 2 (US09/US10): desativada nesta entrega.
-  biometricsEnabled: false,
-  faceRecognitionEnabled: false,
+  biometricsEnabled: true,
+  faceRecognitionEnabled: true,
   autoLockMinutes: 5,
   biometricPerItem: false,
   locationLockEnabled: false,
@@ -47,10 +50,11 @@ const initialState: AuthState = {
 };
 
 type Action =
-  | { type: 'INIT'; configured: boolean; failedAttempts: number; lockoutUntil: number }
+  | { type: 'INIT'; configured: boolean; failedAttempts: number; lockoutUntil: number; config?: Partial<SecurityConfig> }
   | { type: 'UNLOCK' }
   | { type: 'LOCK' }
   | { type: 'FAIL_ATTEMPT'; failedAttempts: number; lockoutUntil: number }
+  | { type: 'UPDATE_CONFIG'; config: Partial<SecurityConfig> }
   | { type: 'WIPE' };
 
 function reducer(state: AuthState, action: Action): AuthState {
@@ -62,7 +66,7 @@ function reducer(state: AuthState, action: Action): AuthState {
         mode: action.configured ? 'locked' : 'setup',
         failedAttempts: action.failedAttempts,
         lockoutUntil: action.lockoutUntil,
-        config: { ...DEFAULT_CONFIG, isConfigured: action.configured },
+        config: { ...DEFAULT_CONFIG, ...(action.config || {}), isConfigured: action.configured },
       };
     case 'UNLOCK':
       return {
@@ -77,6 +81,11 @@ function reducer(state: AuthState, action: Action): AuthState {
       return { ...state, mode: 'locked' };
     case 'FAIL_ATTEMPT':
       return { ...state, failedAttempts: action.failedAttempts, lockoutUntil: action.lockoutUntil };
+    case 'UPDATE_CONFIG':
+      return {
+        ...state,
+        config: { ...state.config, ...action.config },
+      };
     case 'WIPE':
       return { ...initialState, isReady: true, mode: 'setup' };
     default:
@@ -98,6 +107,10 @@ interface AuthContextType {
   state: AuthState;
   setupVault: (pin: string, emergencyPin: string) => Promise<void>;
   unlockWithPin: (pin: string) => Promise<UnlockResult>;
+  unlockWithBiometrics: () => Promise<boolean>;
+  unlockWithFace: () => Promise<boolean>;
+  changeMasterPin: (oldPin: string, newPin: string) => Promise<boolean>;
+  updateConfig: (config: Partial<SecurityConfig>) => Promise<void>;
   lock: () => void;
   wipeAll: () => Promise<void>;
 }
@@ -130,10 +143,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       const configured = await isVaultConfigured();
+      const savedConfig = await loadSecurityConfig();
       const attempts = configured
         ? await getAttemptState()
         : { failedAttempts: 0, lockoutUntil: 0 };
-      dispatch({ type: 'INIT', configured, ...attempts });
+      dispatch({ type: 'INIT', configured, ...attempts, config: savedConfig });
     })();
   }, []);
 
@@ -156,6 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setAttemptState({ failedAttempts: 0, lockoutUntil: 0 });
 
     await setSessionSecret(pin);
+    await setBioPin(pin);
     await setVaultConfigured(true);
 
     dispatch({ type: 'UNLOCK' });
@@ -175,6 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const emergencyHash = await getEmergencyHash();
     if (emergencyHash && inputHash === emergencyHash) {
+      await logAccess(true, 'duress');
       await wipeAll();
       return 'emergency';
     }
@@ -183,6 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (masterHash && inputHash === masterHash) {
       await setAttemptState({ failedAttempts: 0, lockoutUntil: 0 });
       await setSessionSecret(pin);
+      await setBioPin(pin);
       await logAccess(true, 'pin');
       dispatch({ type: 'UNLOCK' });
       return 'unlocked';
@@ -202,6 +219,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return 'wrong';
   }, [wipeAll]);
 
+  const unlockWithBiometrics = useCallback(async (): Promise<boolean> => {
+    const attempts = await getAttemptState();
+    if (Date.now() < attempts.lockoutUntil) return false;
+
+    const bioPin = await getBioPin();
+    if (!bioPin) return false;
+
+    await setAttemptState({ failedAttempts: 0, lockoutUntil: 0 });
+    await setSessionSecret(bioPin);
+    await logAccess(true, 'biometric');
+    dispatch({ type: 'UNLOCK' });
+    return true;
+  }, []);
+
+  const unlockWithFace = useCallback(async (): Promise<boolean> => {
+    const attempts = await getAttemptState();
+    if (Date.now() < attempts.lockoutUntil) return false;
+
+    const bioPin = await getBioPin();
+    if (!bioPin) return false;
+
+    await setAttemptState({ failedAttempts: 0, lockoutUntil: 0 });
+    await setSessionSecret(bioPin);
+    await logAccess(true, 'face');
+    dispatch({ type: 'UNLOCK' });
+    return true;
+  }, []);
+
+  const changeMasterPin = useCallback(async (oldPin: string, newPin: string): Promise<boolean> => {
+    const salt = await getMasterSalt();
+    if (!salt) return false;
+
+    const iterations = (await getKdfIterations()) ?? LEGACY_PBKDF2_ITERATIONS;
+    const oldHash = hashPin(oldPin, salt, iterations);
+    const masterHash = await getMasterHash();
+
+    if (!masterHash || oldHash !== masterHash) return false;
+
+    try {
+      const currentVault = await loadVault(oldPin);
+      await saveVault(currentVault, newPin);
+    } catch {
+      // Cofre ainda vazio ou recem-criado
+    }
+
+    const newSalt = await generateRandomHex(16);
+    await setMasterSalt(newSalt);
+    await setKdfIterations(PBKDF2_ITERATIONS);
+    await setMasterHash(hashPin(newPin, newSalt, PBKDF2_ITERATIONS));
+    await setSessionSecret(newPin);
+    await setBioPin(newPin);
+    return true;
+  }, []);
+
+  const updateConfig = useCallback(async (newConfig: Partial<SecurityConfig>) => {
+    await saveSecurityConfig(newConfig);
+    dispatch({ type: 'UPDATE_CONFIG', config: newConfig });
+  }, []);
+
   const lock = useCallback(() => {
     // Descarta o PIN e as chaves derivadas da memoria ao trancar.
     setSessionSecret(null).catch(() => {});
@@ -214,6 +290,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       state,
       setupVault,
       unlockWithPin,
+      unlockWithBiometrics,
+      unlockWithFace,
+      changeMasterPin,
+      updateConfig,
       lock,
       wipeAll,
     }}>
