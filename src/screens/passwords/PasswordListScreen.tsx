@@ -382,6 +382,7 @@ export function HomeScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.categoryScrollView}
           contentContainerStyle={styles.categoryBar}
         >
           {categories.map(cat => (
@@ -571,19 +572,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#B5824C',
     borderRadius: 2,
   },
-  searchContainer: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6 },
+  searchContainer: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 6 },
   searchInput: {
     backgroundColor: '#FFFFFF',
     color: '#1E1E1E',
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 12,
     fontSize: 14,
     borderWidth: 1,
     borderColor: '#E6DFD5',
   },
+  categoryScrollView: {
+    flexGrow: 0,
+    marginBottom: 6,
+  },
   categoryBar: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 2,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -621,8 +627,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginTop: 4,
-    marginBottom: 8,
+    marginTop: 0,
+    marginBottom: 6,
     gap: 8,
   },
   sortLabel: { color: '#756F68', fontSize: 12, fontWeight: '500' },
@@ -637,7 +643,7 @@ const styles = StyleSheet.create({
   sortChipActive: { backgroundColor: '#FFF9EE', borderColor: '#B5824C' },
   sortText: { color: '#756F68', fontSize: 12 },
   sortTextActive: { color: '#996515', fontWeight: '700' },
-  list: { padding: 16, paddingBottom: 88 },
+  list: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 88 },
   itemCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
