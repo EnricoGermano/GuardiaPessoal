@@ -257,20 +257,17 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
             <View style={styles.field}>
               <Text style={styles.label}>Categoria</Text>
               <View style={styles.categoryRow}>
-                {vault?.categories.map(c => {
-                  const icon = c.id === '1' ? '👤 ' : c.id === '2' ? '💼 ' : c.id === '3' ? '💰 ' : '📁 ';
-                  return (
-                    <TouchableOpacity
-                      key={c.id}
-                      style={[styles.catChip, category === c.id && styles.catChipActive]}
-                      onPress={() => { notifyActivity(); setCategory(c.id); }}
-                    >
-                      <Text style={[styles.catText, category === c.id && styles.catTextActive]}>
-                        {icon}{c.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                {vault?.categories.map(c => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={[styles.catChip, category === c.id && styles.catChipActive]}
+                    onPress={() => { notifyActivity(); setCategory(c.id); }}
+                  >
+                    <Text style={[styles.catText, category === c.id && styles.catTextActive]}>
+                      {c.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
 

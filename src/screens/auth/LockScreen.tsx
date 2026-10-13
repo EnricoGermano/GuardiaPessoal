@@ -176,7 +176,7 @@ export function LockScreen() {
                     disabled={isLocked || busy}
                   >
                     <Text style={[styles.keyText, val === 'face' && styles.faceText]}>
-                      {val === 'face' ? '👤 Face' : val}
+                      {val === 'face' ? 'Face' : val}
                     </Text>
                   </TouchableOpacity>
                 )

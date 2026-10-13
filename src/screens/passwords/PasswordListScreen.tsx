@@ -58,10 +58,10 @@ export function HomeScreen() {
   }, [revealedId]);
 
   const categories = useMemo(() => [
-    { id: 'todas', name: 'Todas', icon: '🏷️' },
-    { id: '1', name: 'Pessoal', icon: '👤' },
-    { id: '2', name: 'Trabalho', icon: '💼' },
-    { id: '3', name: 'Financeiro', icon: '💰' },
+    { id: 'todas', name: 'Todas' },
+    { id: '1', name: 'Pessoal' },
+    { id: '2', name: 'Trabalho' },
+    { id: '3', name: 'Financeiro' },
   ], []);
 
   const filteredPasswords = useMemo(() => {
@@ -255,12 +255,12 @@ export function HomeScreen() {
           <View style={styles.badgesRow}>
             {item.isFavorite && (
               <View style={[styles.badge, { backgroundColor: '#FFF9EE' }]}>
-                <Text style={[styles.badgeText, { color: '#996515' }]}>★ Favorita</Text>
+                <Text style={[styles.badgeText, { color: '#996515' }]}>Favorita</Text>
               </View>
             )}
             {linkedService && (
               <View style={[styles.badge, { backgroundColor: '#EAF2EC', marginLeft: 4 }]}>
-                <Text style={[styles.badgeText, { color: '#4A7C59' }]}>🔗 {linkedService}</Text>
+                <Text style={[styles.badgeText, { color: '#4A7C59' }]}>{linkedService}</Text>
               </View>
             )}
           </View>
@@ -394,7 +394,6 @@ export function HomeScreen() {
               ]}
               onPress={() => { resetTimer(); setSelectedCategory(cat.id); }}
             >
-              <Text style={styles.categoryIcon}>{cat.icon}</Text>
               <Text
                 style={[
                   styles.categoryChipText,
@@ -590,10 +589,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   categoryChip: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     minHeight: 38,
     borderRadius: 20,
@@ -609,10 +607,6 @@ const styles = StyleSheet.create({
   categoryChipActive: {
     backgroundColor: '#FFF9EE',
     borderColor: '#B5824C',
-  },
-  categoryIcon: {
-    fontSize: 14,
-    marginRight: 6,
   },
   categoryChipText: {
     fontSize: 13,

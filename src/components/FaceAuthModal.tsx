@@ -125,7 +125,7 @@ export const FaceAuthModal: React.FC<FaceAuthModalProps> = ({
               <CameraView style={styles.camera} facing="front" />
             ) : (
               <View style={styles.noCameraFallback}>
-                <Text style={styles.cameraIcon}>👤</Text>
+                <Text style={styles.cameraIconText}>Câmera</Text>
               </View>
             )}
 
@@ -139,13 +139,13 @@ export const FaceAuthModal: React.FC<FaceAuthModalProps> = ({
 
             {status === 'success' && (
               <View style={styles.statusOverlay}>
-                <Text style={styles.checkmark}>✓</Text>
+                <Text style={styles.checkmark}>OK</Text>
               </View>
             )}
 
             {status === 'failed' && (
               <View style={styles.statusOverlay}>
-                <Text style={styles.errorIcon}>✕</Text>
+                <Text style={styles.errorIcon}>X</Text>
               </View>
             )}
           </View>
@@ -249,8 +249,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFF9EE',
   },
-  cameraIcon: {
-    fontSize: 52,
+  cameraIconText: {
+    fontSize: 13,
+    color: '#8A8175',
+    fontWeight: '600',
   },
   scannerOverlay: {
     position: 'absolute',
@@ -284,12 +286,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.45)',
   },
   checkmark: {
-    fontSize: 54,
+    fontSize: 32,
     color: '#4A7C59',
     fontWeight: 'bold',
   },
   errorIcon: {
-    fontSize: 50,
+    fontSize: 36,
     color: '#D9534F',
     fontWeight: 'bold',
   },
