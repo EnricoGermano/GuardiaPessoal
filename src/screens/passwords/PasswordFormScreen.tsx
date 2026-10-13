@@ -243,17 +243,20 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
             <View style={styles.field}>
               <Text style={styles.label}>Categoria</Text>
               <View style={styles.categoryRow}>
-                {vault?.categories.map(c => (
-                  <TouchableOpacity
-                    key={c.id}
-                    style={[styles.catChip, category === c.id && styles.catChipActive]}
-                    onPress={() => { notifyActivity(); setCategory(c.id); }}
-                  >
-                    <Text style={[styles.catText, category === c.id && styles.catTextActive]}>
-                      {c.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {vault?.categories.map(c => {
+                  const icon = c.id === '1' ? '👤 ' : c.id === '2' ? '💼 ' : c.id === '3' ? '💰 ' : '📁 ';
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[styles.catChip, category === c.id && styles.catChipActive]}
+                      onPress={() => { notifyActivity(); setCategory(c.id); }}
+                    >
+                      <Text style={[styles.catText, category === c.id && styles.catTextActive]}>
+                        {icon}{c.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
 
@@ -386,17 +389,17 @@ const styles = StyleSheet.create({
   },
   categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   catChip: {
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 8,
+    borderRadius: 18,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1,
+    borderWidth: 1.2,
     borderColor: '#E6DFD5',
   },
   catChipActive: {
     backgroundColor: '#FFF9EE',
     borderColor: '#B5824C',
   },
-  catText: { color: '#756F68', fontSize: 13 },
+  catText: { color: '#756F68', fontSize: 13, fontWeight: '500' },
   catTextActive: { color: '#996515', fontWeight: '700' },
 });

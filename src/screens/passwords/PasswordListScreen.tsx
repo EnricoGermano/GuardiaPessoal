@@ -58,10 +58,10 @@ export function HomeScreen() {
   }, [revealedId]);
 
   const categories = useMemo(() => [
-    { id: 'todas', name: 'Todas' },
-    { id: '1', name: 'Pessoal' },
-    { id: '2', name: 'Trabalho' },
-    { id: '3', name: 'Financeiro' },
+    { id: 'todas', name: 'Todas', icon: '🏷️' },
+    { id: '1', name: 'Pessoal', icon: '👤' },
+    { id: '2', name: 'Trabalho', icon: '💼' },
+    { id: '3', name: 'Financeiro', icon: '💰' },
   ], []);
 
   const filteredPasswords = useMemo(() => {
@@ -379,16 +379,22 @@ export function HomeScreen() {
 
       {/* Pílulas de Categoria para Senhas (US16) */}
       {tab === 'passwords' && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryBar}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryBar}
+        >
           {categories.map(cat => (
             <TouchableOpacity
               key={cat.id}
+              activeOpacity={0.75}
               style={[
                 styles.categoryChip,
                 selectedCategory === cat.id && styles.categoryChipActive,
               ]}
               onPress={() => { resetTimer(); setSelectedCategory(cat.id); }}
             >
+              <Text style={styles.categoryIcon}>{cat.icon}</Text>
               <Text
                 style={[
                   styles.categoryChipText,
@@ -576,19 +582,47 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E6DFD5',
   },
-  categoryBar: { paddingHorizontal: 16, paddingVertical: 6, gap: 8 },
-  categoryChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E6DFD5',
-    marginRight: 8,
+  categoryBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  categoryChipActive: { backgroundColor: '#FFF9EE', borderColor: '#B5824C' },
-  categoryChipText: { fontSize: 12, color: '#756F68' },
-  categoryChipTextActive: { color: '#996515', fontWeight: '700' },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    minHeight: 38,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.2,
+    borderColor: '#E6DFD5',
+    elevation: 1,
+    shadowColor: '#1E1E1E',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+  },
+  categoryChipActive: {
+    backgroundColor: '#FFF9EE',
+    borderColor: '#B5824C',
+  },
+  categoryIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  categoryChipText: {
+    fontSize: 13,
+    color: '#756F68',
+    fontWeight: '500',
+  },
+  categoryChipTextActive: {
+    color: '#996515',
+    fontWeight: '700',
+  },
   sortContainer: {
     flexDirection: 'row',
     alignItems: 'center',
