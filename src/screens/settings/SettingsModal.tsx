@@ -139,6 +139,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
             </View>
           </View>
 
+          {/* Modo Seguro / Bloqueio de Print */}
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Modo Seguro (Bloqueio de Captura)</Text>
+            <Text style={styles.sectionDesc}>
+              Impede prints de tela, gravações e pré-visualizações do app nas tarefas recentes (FLAG_SECURE).
+            </Text>
+            <View style={styles.rowBetween}>
+              <View style={styles.toggleLabelCol}>
+                <Text style={styles.itemTitle}>
+                  {state.config.screenProtectionEnabled !== false ? 'Modo Seguro Ativado' : 'Modo Seguro Desativado'}
+                </Text>
+                <Text style={styles.itemSubtitle}>
+                  {state.config.screenProtectionEnabled !== false
+                    ? 'Prints e gravações bloqueados pelo sistema'
+                    : 'Permite tirar print e compartilhar tela (Ideal para apresentações)'}
+                </Text>
+              </View>
+              <Switch
+                value={state.config.screenProtectionEnabled !== false}
+                onValueChange={val => {
+                  updateConfig({ screenProtectionEnabled: val });
+                }}
+                trackColor={{ false: '#E6DFD5', true: '#B5824C' }}
+              />
+            </View>
+          </View>
+
           {/* Alterar PIN Mestre (US29) */}
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Alterar PIN Mestre</Text>

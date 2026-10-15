@@ -23,7 +23,7 @@ const MASK = '••••••••';
 const REVEAL_TIMEOUT_MS = 15000;
 
 export function HomeScreen() {
-  const { state, lock } = useAuth();
+  const { state, lock, updateConfig } = useAuth();
   const { vault, loading, error, deletePassword, deleteNote, reload } = useVault();
   const { copyWithTimer } = useClipboardTimer();
 
@@ -325,6 +325,36 @@ export function HomeScreen() {
         <Text style={styles.headerTitle}>Guardião Pessoal</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity
+            style={[
+              styles.headerNavBtn,
+              state.config.screenProtectionEnabled !== false
+                ? styles.screenProtectActiveBtn
+                : styles.screenProtectDisabledBtn,
+            ]}
+            onPress={() => {
+              const current = state.config.screenProtectionEnabled !== false;
+              updateConfig({ screenProtectionEnabled: !current });
+              Alert.alert(
+                !current ? 'Modo Seguro Ativado' : 'Modo Seguro Desativado',
+                !current
+                  ? 'Capturas de tela e gravações estão BLOQUEADAS.'
+                  : 'Capturas de tela LIBERADAS. Agora você pode tirar prints ou gravar para sua apresentação.'
+              );
+            }}
+          >
+            <Text
+              style={[
+                styles.headerNavText,
+                state.config.screenProtectionEnabled !== false
+                  ? styles.screenProtectActiveText
+                  : styles.screenProtectDisabledText,
+              ]}
+            >
+              {state.config.screenProtectionEnabled !== false ? 'Seguro: ON' : 'Seguro: OFF'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.headerNavBtn}
             onPress={() => setSecurityModalVisible(true)}
           >
@@ -550,6 +580,22 @@ const styles = StyleSheet.create({
     borderColor: '#E6DFD5',
   },
   headerNavText: { color: '#4A4237', fontSize: 12, fontWeight: '600' },
+  screenProtectActiveBtn: {
+    backgroundColor: '#EAF2EC',
+    borderColor: '#A8D5B5',
+  },
+  screenProtectActiveText: {
+    color: '#2D6A4F',
+    fontWeight: '700',
+  },
+  screenProtectDisabledBtn: {
+    backgroundColor: '#FFF1F0',
+    borderColor: '#FFA39E',
+  },
+  screenProtectDisabledText: {
+    color: '#CF1322',
+    fontWeight: '700',
+  },
   lockButton: {
     paddingHorizontal: 10,
     paddingVertical: 6,

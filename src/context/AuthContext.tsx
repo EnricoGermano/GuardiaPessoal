@@ -36,6 +36,7 @@ const DEFAULT_CONFIG: SecurityConfig = {
   autoLockMinutes: 5,
   biometricPerItem: false,
   locationLockEnabled: false,
+  screenProtectionEnabled: true,
   offlineOnly: true,
   highContrast: false,
   fullScreen: false,

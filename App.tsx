@@ -13,6 +13,14 @@ import * as ScreenCapture from 'expo-screen-capture';
 function AppContent() {
   const { state } = useAuth();
 
+  React.useEffect(() => {
+    if (state.config.screenProtectionEnabled !== false) {
+      ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+    } else {
+      ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+    }
+  }, [state.config.screenProtectionEnabled]);
+
   if (!state.isReady) {
     return <View style={styles.container} />;
   }
@@ -33,12 +41,6 @@ function AppContent() {
 }
 
 export default function App() {
-  ScreenCapture.usePreventScreenCapture();
-
-  React.useEffect(() => {
-    ScreenCapture.preventScreenCaptureAsync().catch(() => {});
-  }, []);
-
   return (
     <SafeAreaProvider>
       <AuthProvider>

@@ -10,6 +10,7 @@ export interface SecurityConfig {
   safeLatitude?: number;
   safeLongitude?: number;
   safeRadiusMeters?: number;
+  screenProtectionEnabled: boolean;
   offlineOnly: boolean;
   highContrast: boolean;
   fullScreen: boolean;
