@@ -338,7 +338,7 @@ export function HomeScreen() {
                 !current ? 'Modo Seguro Ativado' : 'Modo Seguro Desativado',
                 !current
                   ? 'Capturas de tela e gravações estão BLOQUEADAS.'
-                  : 'Capturas de tela LIBERADAS. Agora você pode tirar prints ou gravar para sua apresentação.'
+                  : 'Capturas de tela LIBERADAS. Agora você pode tirar prints ou gravar a tela.'
               );
             }}
           >

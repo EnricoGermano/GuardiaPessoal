@@ -153,7 +153,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                 <Text style={styles.itemSubtitle}>
                   {state.config.screenProtectionEnabled !== false
                     ? 'Prints e gravações bloqueados pelo sistema'
-                    : 'Permite tirar print e compartilhar tela (Ideal para apresentações)'}
+                    : 'Permite tirar print e compartilhar tela livremente'}
                 </Text>
               </View>
               <Switch
