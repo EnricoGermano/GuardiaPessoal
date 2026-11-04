@@ -25,6 +25,7 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
   const [password, setPassword] = useState(editingItem?.password || '');
   const [url, setUrl] = useState(editingItem?.url || '');
   const [category, setCategory] = useState(editingItem?.category || '1');
+  const [tagsText, setTagsText] = useState(editingItem?.tags?.join(', ') || '');
   const [importance, setImportance] = useState<ImportanceLevel>(editingItem?.importance || 'media');
   const [hint, setHint] = useState(editingItem?.hint || '');
   const [warning, setWarning] = useState(editingItem?.warning || '');
@@ -67,6 +68,10 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
 
   const executeSave = async () => {
     setSaving(true);
+    const parsedTags = tagsText
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean);
     try {
       if (editingItem) {
         await updatePassword(editingItem.id, {
@@ -75,6 +80,7 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
           password,
           url: url.trim() || undefined,
           category,
+          tags: parsedTags,
           importance,
           hint: hint.trim() || undefined,
           warning: warning.trim() || undefined,
@@ -86,7 +92,7 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
           password,
           url: url.trim() || undefined,
           category,
-          tags: [],
+          tags: parsedTags,
           importance,
           hint: hint.trim() || undefined,
           warning: warning.trim() || undefined,
@@ -124,6 +130,7 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
   return (
     <SafeAreaView
       style={styles.container}
+      edges={['bottom', 'left', 'right']}
       onStartShouldSetResponderCapture={() => {
         notifyActivity();
         return false;
@@ -133,34 +140,37 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
       >
+        <View style={[styles.header, { paddingTop: Math.max(topPad, 12) + 6 }]}>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={onDone}
+            disabled={saving}
+            hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cancelText}>Voltar</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {editingItem ? 'Editar Senha' : 'Nova Credencial'}
+          </Text>
+          <TouchableOpacity
+            style={[styles.headerBtn, styles.saveBtn]}
+            onPress={handleSave}
+            disabled={saving}
+            hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.saveText, saving && styles.saveTextDisabled]}>
+              {saving ? 'Salvando...' : 'Salvar'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           onScrollBeginDrag={notifyActivity}
         >
-          <View style={[styles.header, { paddingTop: Math.max(topPad, 12) + 6 }]}>
-            <TouchableOpacity
-              style={styles.headerBtn}
-              onPress={onDone}
-              disabled={saving}
-              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cancelText}>← Voltar</Text>
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>{editingItem ? 'Editar Senha' : 'Nova Credencial'}</Text>
-            <TouchableOpacity
-              style={[styles.headerBtn, styles.saveBtn]}
-              onPress={handleSave}
-              disabled={saving}
-              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.saveText, saving && styles.saveTextDisabled]}>
-                {saving ? 'Salvando...' : 'Salvar'}
-              </Text>
-            </TouchableOpacity>
-          </View>
 
           <View style={styles.card}>
             <View style={styles.field}>
@@ -255,6 +265,18 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
             </View>
 
             <View style={styles.field}>
+              <Text style={styles.label}>Tags (opcional, separadas por virgula)</Text>
+              <TextInput
+                style={styles.input}
+                value={tagsText}
+                onChangeText={t => { notifyActivity(); setTagsText(t); }}
+                placeholder="Ex: banco, cartao, principal"
+                placeholderTextColor="#A8A199"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.field}>
               <Text style={styles.label}>Categoria</Text>
               <View style={styles.categoryRow}>
                 {vault?.categories.map(c => (
@@ -327,8 +349,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderColor: '#EFEAE2',
+    backgroundColor: '#FFFFFF',
   },
   headerBtn: {
     paddingVertical: 8,

@@ -122,9 +122,9 @@ export const NoteFormModal: React.FC<NoteFormModalProps> = ({
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.cancelText}>← Voltar</Text>
+            <Text style={styles.cancelText}>Voltar</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
             {editingItem ? 'Editar Nota' : 'Nova Nota Confidencial'}
           </Text>
           <TouchableOpacity
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   rowLabel: { fontSize: 14, fontWeight: '600', color: '#1E1E1E' },
-  destructRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  destructRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   destructChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+import { calculatePinStrength } from '../../components/PasswordStrengthBar';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -29,19 +30,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
   const [newPin, setNewPin] = useState('');
 
   const handleChangePin = async () => {
-    if (oldPin.length !== 4) {
+    const cleanOld = oldPin.replace(/[^0-9]/g, '');
+    const cleanNew = newPin.replace(/[^0-9]/g, '');
+    if (cleanOld.length !== 4) {
       Alert.alert('Atenção', 'Informe o PIN atual de 4 dígitos.');
       return;
     }
-    if (newPin.length !== 4) {
+    if (cleanNew.length !== 4) {
       Alert.alert('Atenção', 'O novo PIN deve ter exatamente 4 dígitos numéricos.');
       return;
     }
-    const res = await changeMasterPin(oldPin, newPin);
-    if (res) {
+    if (calculatePinStrength(cleanNew) <= 1) {
+      Alert.alert(
+        'PIN muito fraco',
+        'Evite dígitos repetidos ou sequências (ex: 0000, 1234, 1122).'
+      );
+      return;
+    }
+    const res = await changeMasterPin(cleanOld, cleanNew);
+    if (res === 'ok') {
       Alert.alert('Sucesso', 'PIN mestre alterado com sucesso!');
       setOldPin('');
       setNewPin('');
+    } else if (res === 'same_as_emergency') {
+      Alert.alert('Erro', 'O novo PIN mestre não pode ser igual ao PIN de emergência.');
+    } else if (res === 'same_as_old') {
+      Alert.alert('Atenção', 'O novo PIN deve ser diferente do PIN atual.');
     } else {
       Alert.alert('Erro', 'PIN atual incorreto.');
     }
@@ -75,9 +89,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.closeText}>← Voltar</Text>
+            <Text style={styles.closeText}>Voltar</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Configurações de Segurança</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>Configurações de Segurança</Text>
           <View style={{ width: 60 }} />
         </View>
 
@@ -179,7 +193,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
               keyboardType="number-pad"
               maxLength={4}
               value={oldPin}
-              onChangeText={setOldPin}
+              onChangeText={t => setOldPin(t.replace(/[^0-9]/g, '').substring(0, 4))}
             />
 
             <TextInput
@@ -190,7 +204,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
               keyboardType="number-pad"
               maxLength={4}
               value={newPin}
-              onChangeText={setNewPin}
+              onChangeText={t => setNewPin(t.replace(/[^0-9]/g, '').substring(0, 4))}
             />
 
             <TouchableOpacity style={styles.actionBtn} onPress={handleChangePin}>

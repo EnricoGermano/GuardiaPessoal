@@ -179,6 +179,16 @@ export function HomeScreen() {
 
         <Text style={styles.itemUser}>{item.username}</Text>
 
+        {item.tags && item.tags.length > 0 && (
+          <View style={styles.tagsRow}>
+            {item.tags.map((tag, idx) => (
+              <View key={`${item.id}-tag-${idx}`} style={styles.tagPill}>
+                <Text style={styles.tagText}>#{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         <View style={styles.passwordRow}>
           <Text style={styles.passwordText} selectable={false} numberOfLines={1}>
             {revealed ? item.password : MASK}
@@ -322,7 +332,7 @@ export function HomeScreen() {
         onPress={() => setShieldVisible(true)}
         onLongPress={() => setShieldVisible(true)}
       >
-        <Text style={styles.headerTitle}>Guardião Pessoal</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>Guardião Pessoal</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={[
@@ -563,16 +573,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FBF9F5' },
   header: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 8,
+    gap: 8,
   },
-  headerTitle: { color: '#1E1E1E', fontSize: 20, fontWeight: '700' },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headerTitle: { color: '#1E1E1E', fontSize: 19, fontWeight: '700', flexShrink: 1 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
   headerNavBtn: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 6,
     borderRadius: 8,
     backgroundColor: '#FFFFFF',
@@ -718,6 +730,16 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: 11, fontWeight: '700' },
   itemUser: { color: '#756F68', fontSize: 13, marginBottom: 8 },
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
+  tagPill: {
+    backgroundColor: '#F3EFE8',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E6DFD5',
+  },
+  tagText: { color: '#6A6255', fontSize: 11, fontWeight: '600' },
   passwordRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -727,8 +749,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8,
     marginBottom: 8,
+    gap: 8,
   },
-  passwordText: { color: '#1E1E1E', fontSize: 14, fontWeight: '600' },
+  passwordText: { color: '#1E1E1E', fontSize: 14, fontWeight: '600', flex: 1, marginRight: 8 },
   warningText: { color: '#D9822B', fontSize: 12, marginBottom: 8, fontWeight: '500' },
   hintText: { color: '#A8A199', fontSize: 12, marginTop: 4, fontStyle: 'italic' },
   itemActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

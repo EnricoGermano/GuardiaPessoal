@@ -103,6 +103,7 @@ function reducer(state: AuthState, action: Action): AuthState {
  * - wiped: limite de tentativas atingido, dados apagados
  */
 export type UnlockResult = 'unlocked' | 'wrong' | 'locked' | 'emergency' | 'wiped';
+export type ChangePinResult = 'ok' | 'wrong_old' | 'same_as_emergency' | 'same_as_old';
 
 interface AuthContextType {
   state: AuthState;
@@ -110,7 +111,7 @@ interface AuthContextType {
   unlockWithPin: (pin: string) => Promise<UnlockResult>;
   unlockWithBiometrics: () => Promise<boolean>;
   unlockWithFace: () => Promise<boolean>;
-  changeMasterPin: (oldPin: string, newPin: string) => Promise<boolean>;
+  changeMasterPin: (oldPin: string, newPin: string) => Promise<ChangePinResult>;
   updateConfig: (config: Partial<SecurityConfig>) => Promise<void>;
   lock: () => void;
   wipeAll: () => Promise<void>;
@@ -248,15 +249,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, []);
 
-  const changeMasterPin = useCallback(async (oldPin: string, newPin: string): Promise<boolean> => {
+  const changeMasterPin = useCallback(async (oldPin: string, newPin: string): Promise<ChangePinResult> => {
     const salt = await getMasterSalt();
-    if (!salt) return false;
+    if (!salt) return 'wrong_old';
 
     const iterations = (await getKdfIterations()) ?? LEGACY_PBKDF2_ITERATIONS;
     const oldHash = hashPin(oldPin, salt, iterations);
     const masterHash = await getMasterHash();
 
-    if (!masterHash || oldHash !== masterHash) return false;
+    if (!masterHash || oldHash !== masterHash) return 'wrong_old';
+    if (newPin === oldPin) return 'same_as_old';
+
+    const emergencyHash = await getEmergencyHash();
+    const newHashWithCurrentSalt = hashPin(newPin, salt, iterations);
+    if (emergencyHash && newHashWithCurrentSalt === emergencyHash) {
+      return 'same_as_emergency';
+    }
 
     try {
       const currentVault = await loadVault(oldPin);
@@ -265,13 +273,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Cofre ainda vazio ou recem-criado
     }
 
-    const newSalt = await generateRandomHex(16);
-    await setMasterSalt(newSalt);
-    await setKdfIterations(PBKDF2_ITERATIONS);
-    await setMasterHash(hashPin(newPin, newSalt, PBKDF2_ITERATIONS));
+    // Mantem o salt e as iteracoes atuais para preservar a validade do emergencyHash.
+    await setKdfIterations(iterations);
+    await setMasterHash(newHashWithCurrentSalt);
     await setSessionSecret(newPin);
     await setBioPin(newPin);
-    return true;
+    return 'ok';
   }, []);
 
   const updateConfig = useCallback(async (newConfig: Partial<SecurityConfig>) => {

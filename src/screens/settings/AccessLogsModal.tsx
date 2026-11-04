@@ -42,9 +42,9 @@ export const AccessLogsModal: React.FC<AccessLogsModalProps> = ({ visible, onClo
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.closeText}>← Voltar</Text>
+            <Text style={styles.closeText}>Voltar</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Histórico de Acessos</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>Histórico de Acessos</Text>
           <View style={{ width: 60 }} />
         </View>
 
