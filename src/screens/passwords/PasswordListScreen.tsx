@@ -39,6 +39,7 @@ export function HomeScreen() {
   const [logsModalVisible, setLogsModalVisible] = useState(false);
   const [revealedId, setRevealedId] = useState<string | null>(null);
   const [shieldVisible, setShieldVisible] = useState(false);
+  const [nowTs, setNowTs] = useState(Date.now());
 
   const { resetTimer } = useInactivityTimer(
     state.config.autoLockMinutes,
@@ -56,6 +57,23 @@ export function HomeScreen() {
     const t = setTimeout(() => setRevealedId(null), REVEAL_TIMEOUT_MS);
     return () => clearTimeout(t);
   }, [revealedId]);
+
+  useEffect(() => {
+    if (!vault) return;
+    const hasExpiring = vault.notes.some(n => !!n.expiresAt);
+    if (!hasExpiring) return;
+
+    const interval = setInterval(() => {
+      const current = Date.now();
+      setNowTs(current);
+      const expired = vault.notes.find(n => n.expiresAt && n.expiresAt <= current);
+      if (expired) {
+        deleteNote(expired.id).catch(() => {});
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [vault, deleteNote]);
 
   const categories = useMemo(() => [
     { id: 'todas', name: 'Todas' },
@@ -92,8 +110,7 @@ export function HomeScreen() {
   const filteredNotes = useMemo(() => {
     if (!vault) return [];
     const q = search.toLowerCase();
-    const now = Date.now();
-    let notes = vault.notes.filter(n => !n.isHidden && (!n.expiresAt || n.expiresAt > now));
+    let notes = vault.notes.filter(n => !n.isHidden && (!n.expiresAt || n.expiresAt > nowTs));
 
     if (q) {
       notes = notes.filter(n =>
@@ -104,7 +121,7 @@ export function HomeScreen() {
     }
 
     return notes.sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0));
-  }, [vault, search]);
+  }, [vault, search, nowTs]);
 
   const handleCopy = async (text: string, label: string) => {
     try {
@@ -167,6 +184,11 @@ export function HomeScreen() {
   const renderPasswordItem = ({ item }: { item: PasswordItem }) => {
     const badge = importanceBadge(item.importance);
     const revealed = revealedId === item.id;
+    const linkedNotes = vault
+      ? vault.notes.filter(
+          n => n.linkedPasswordId === item.id && !n.isHidden && (!n.expiresAt || n.expiresAt > nowTs)
+        )
+      : [];
 
     return (
       <View style={styles.itemCard}>
@@ -186,6 +208,31 @@ export function HomeScreen() {
                 <Text style={styles.tagText}>#{tag}</Text>
               </View>
             ))}
+          </View>
+        )}
+
+        {linkedNotes.length > 0 && (
+          <View style={styles.linkedNotesContainer}>
+            <Text style={styles.linkedNotesLabel}>
+              {linkedNotes.length === 1 ? 'Nota vinculada:' : 'Notas vinculadas:'}
+            </Text>
+            <View style={styles.linkedNotesRow}>
+              {linkedNotes.map(note => (
+                <TouchableOpacity
+                  key={note.id}
+                  style={styles.linkedNoteBadge}
+                  onPress={() => {
+                    resetTimer();
+                    setEditingNote(note);
+                    setNoteModalVisible(true);
+                  }}
+                >
+                  <Text style={styles.linkedNoteBadgeText} numberOfLines={1}>
+                    {note.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         )}
 
@@ -282,8 +329,12 @@ export function HomeScreen() {
           <Text style={styles.hintText}>Obs: {item.observations}</Text>
         ) : null}
 
-        {item.autoDestructDays ? (
-          <Text style={styles.warningText}>Auto-destruição: {item.autoDestructDays} dias</Text>
+        {item.expiresAt ? (
+          <Text style={styles.warningText}>
+            {item.autoDestructDays === -10 || item.expiresAt - nowTs < 60000
+              ? `Auto-destruição em: ${Math.max(0, Math.ceil((item.expiresAt - nowTs) / 1000))}s`
+              : `Auto-destruição: ${item.autoDestructDays} dia(s)`}
+          </Text>
         ) : null}
 
         <View style={[styles.itemActions, { marginTop: 10 }]}>
@@ -400,7 +451,7 @@ export function HomeScreen() {
           onPress={() => { resetTimer(); setTab('notes'); }}
         >
           <Text style={[styles.tabText, tab === 'notes' && styles.tabTextActive]}>
-            Notas ({vault?.notes.length || 0})
+            Notas ({vault ? vault.notes.filter(n => !n.isHidden && (!n.expiresAt || n.expiresAt > nowTs)).length : 0})
           </Text>
           {tab === 'notes' && <View style={styles.tabIndicator} />}
         </TouchableOpacity>
@@ -740,6 +791,38 @@ const styles = StyleSheet.create({
     borderColor: '#E6DFD5',
   },
   tagText: { color: '#6A6255', fontSize: 11, fontWeight: '600' },
+  linkedNotesContainer: {
+    marginBottom: 8,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#EAF2EC',
+    borderWidth: 1,
+    borderColor: '#C5DEC9',
+  },
+  linkedNotesLabel: {
+    fontSize: 11,
+    color: '#2D6A4F',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  linkedNotesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  linkedNoteBadge: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A8D5B5',
+  },
+  linkedNoteBadgeText: {
+    color: '#2D6A4F',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   passwordRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

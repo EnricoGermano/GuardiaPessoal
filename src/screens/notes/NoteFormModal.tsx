@@ -66,7 +66,13 @@ export const NoteFormModal: React.FC<NoteFormModalProps> = ({
       return;
     }
 
-    const expiresAt = autoDestructDays > 0 ? Date.now() + autoDestructDays * 24 * 60 * 60 * 1000 : undefined;
+    const durationMs =
+      autoDestructDays === -10
+        ? 10 * 1000
+        : autoDestructDays > 0
+        ? autoDestructDays * 24 * 60 * 60 * 1000
+        : 0;
+    const expiresAt = durationMs > 0 ? Date.now() + durationMs : undefined;
 
     if (editingItem) {
       await updateNote(editingItem.id, {
@@ -74,7 +80,7 @@ export const NoteFormModal: React.FC<NoteFormModalProps> = ({
         content: content.trim(),
         observations: observations.trim() || undefined,
         isFavorite,
-        autoDestructDays: autoDestructDays > 0 ? autoDestructDays : undefined,
+        autoDestructDays: autoDestructDays !== 0 ? autoDestructDays : undefined,
         expiresAt,
         linkedPasswordId,
       });
@@ -84,7 +90,7 @@ export const NoteFormModal: React.FC<NoteFormModalProps> = ({
         content: content.trim(),
         observations: observations.trim() || undefined,
         isFavorite,
-        autoDestructDays: autoDestructDays > 0 ? autoDestructDays : undefined,
+        autoDestructDays: autoDestructDays !== 0 ? autoDestructDays : undefined,
         expiresAt,
         linkedPasswordId,
       });
@@ -181,6 +187,7 @@ export const NoteFormModal: React.FC<NoteFormModalProps> = ({
             <View style={styles.destructRow}>
               {[
                 { label: 'Nunca', days: 0 },
+                { label: '10 seg', days: -10 },
                 { label: '1 dia', days: 1 },
                 { label: '7 dias', days: 7 },
                 { label: '30 dias', days: 30 },

@@ -157,7 +157,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Modo Seguro (Bloqueio de Captura)</Text>
             <Text style={styles.sectionDesc}>
-              Impede prints de tela, gravações e pré-visualizações do app nas tarefas recentes (FLAG_SECURE).
+              Impede prints de tela, gravações e pré-visualizações do app nas tarefas recentes.
             </Text>
             <View style={styles.rowBetween}>
               <View style={styles.toggleLabelCol}>
@@ -210,16 +210,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
             <TouchableOpacity style={styles.actionBtn} onPress={handleChangePin}>
               <Text style={styles.actionBtnText}>Salvar Novo PIN</Text>
             </TouchableOpacity>
-          </View>
-
-          {/* Privacidade LGPD e Operação Offline */}
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Privacidade e Armazenamento 100% Offline</Text>
-            <Text style={styles.infoText}>
-              • Operação 100% Offline: Nenhum dado, senha ou nota é transmitido para servidores ou internet.{'\n'}
-              • Criptografia Robusta: Todos os dados protegidos com AES-256 e derivação segura PBKDF2.{'\n'}
-              • Proteção Visual: Capturas de tela e visualizações recentes são bloqueadas pelo sistema.
-            </Text>
           </View>
 
           {/* Zona de Perigo */}
@@ -310,7 +300,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   actionBtnText: { color: '#996515', fontSize: 13, fontWeight: '700' },
-  infoText: { fontSize: 12, color: '#5C5449', lineHeight: 18 },
   dangerCard: { borderColor: '#FBEAE5', backgroundColor: '#FFFDFD' },
   wipeBtn: {
     backgroundColor: '#FBEAE5',
