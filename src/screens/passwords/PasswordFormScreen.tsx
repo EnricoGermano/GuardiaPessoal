@@ -7,7 +7,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useVault } from '../../context/VaultContext';
 import { generateRandomPassword, generateWordPassword, evaluateStrength } from '../../crypto/generator';
 import { PasswordStrengthBar } from '../../components/PasswordStrengthBar';
-import type { ImportanceLevel, PasswordItem } from '../../types/vault';
+import { NoteFormModal } from '../notes/NoteFormModal';
+import type { ImportanceLevel, PasswordItem, NoteItem } from '../../types/vault';
 
 interface Props {
   onDone: () => void;
@@ -18,7 +19,7 @@ interface Props {
 export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0);
-  const { vault, addPassword, updatePassword } = useVault();
+  const { vault, addPassword, updatePassword, addNote, updateNote } = useVault();
 
   const [service, setService] = useState(editingItem?.service || '');
   const [username, setUsername] = useState(editingItem?.username || '');
@@ -34,9 +35,73 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
   const [genSymbols, setGenSymbols] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // Estados para vinculação e gerenciamento de notas confidenciais
+  const [quickNoteTitle, setQuickNoteTitle] = useState('');
+  const [quickNoteContent, setQuickNoteContent] = useState('');
+  const [showNoteAdvanced, setShowNoteAdvanced] = useState(false);
+  const [quickNoteDestructDays, setQuickNoteDestructDays] = useState(0);
+  const [quickNoteFavorite, setQuickNoteFavorite] = useState(false);
+  const [selectedNoteModalItem, setSelectedNoteModalItem] = useState<NoteItem | null>(null);
+  const [noteModalVisible, setNoteModalVisible] = useState(false);
+
   const notifyActivity = useCallback(() => {
     if (onActivity) onActivity();
   }, [onActivity]);
+
+  const linkedNotes = editingItem && vault
+    ? vault.notes.filter(n => n.linkedPasswordId === editingItem.id && !n.isHidden)
+    : [];
+
+  const isDirty =
+    service !== (editingItem?.service || '') ||
+    username !== (editingItem?.username || '') ||
+    password !== (editingItem?.password || '') ||
+    url !== (editingItem?.url || '') ||
+    category !== (editingItem?.category || '1') ||
+    tagsText !== (editingItem?.tags?.join(', ') || '') ||
+    importance !== (editingItem?.importance || 'media') ||
+    hint !== (editingItem?.hint || '') ||
+    warning !== (editingItem?.warning || '') ||
+    quickNoteContent.trim() !== '' ||
+    quickNoteTitle.trim() !== '';
+
+  const handleBack = () => {
+    notifyActivity();
+    if (isDirty) {
+      Alert.alert(
+        'Descartar alterações?',
+        'Existem alterações não salvas. Deseja realmente voltar?',
+        [
+          { text: 'Continuar editando', style: 'cancel' },
+          { text: 'Descartar', style: 'destructive', onPress: onDone },
+        ]
+      );
+    } else {
+      onDone();
+    }
+  };
+
+  const handleUnlinkNote = (note: NoteItem) => {
+    notifyActivity();
+    Alert.alert(
+      'Desvincular Nota',
+      `Deseja desvincular a nota "${note.title}" desta credencial?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Desvincular',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await updateNote(note.id, { linkedPasswordId: undefined });
+            } catch (err: any) {
+              Alert.alert('Erro ao desvincular', err?.message || 'Falha ao atualizar a nota.');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleGenerate = () => {
     notifyActivity();
@@ -73,6 +138,7 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
       .map(t => t.trim())
       .filter(Boolean);
     try {
+      let targetPasswordId = editingItem?.id;
       if (editingItem) {
         await updatePassword(editingItem.id, {
           service: service.trim(),
@@ -86,7 +152,7 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
           warning: warning.trim() || undefined,
         });
       } else {
-        await addPassword({
+        const created = await addPassword({
           service: service.trim(),
           username: username.trim(),
           password,
@@ -97,7 +163,30 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
           hint: hint.trim() || undefined,
           warning: warning.trim() || undefined,
         });
+        targetPasswordId = created.id;
       }
+
+      // US14: Se preenchida, salva a nova nota confidencial vinculada à credencial
+      if (quickNoteContent.trim() && targetPasswordId) {
+        const durationMs =
+          quickNoteDestructDays === -10
+            ? 10 * 1000
+            : quickNoteDestructDays > 0
+            ? quickNoteDestructDays * 24 * 60 * 60 * 1000
+            : 0;
+        const expiresAt = durationMs > 0 ? Date.now() + durationMs : undefined;
+        const noteTitle = quickNoteTitle.trim() || `Nota - ${service.trim() || 'Credencial'}`;
+
+        await addNote({
+          title: noteTitle,
+          content: quickNoteContent.trim(),
+          isFavorite: quickNoteFavorite,
+          autoDestructDays: quickNoteDestructDays !== 0 ? quickNoteDestructDays : undefined,
+          expiresAt,
+          linkedPasswordId: targetPasswordId,
+        });
+      }
+
       onDone();
     } catch (err: any) {
       Alert.alert('Erro ao salvar', err?.message || 'Falha ao gravar no cofre.');
@@ -143,7 +232,7 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
         <View style={[styles.header, { paddingTop: Math.max(topPad, 12) + 6 }]}>
           <TouchableOpacity
             style={styles.headerBtn}
-            onPress={onDone}
+            onPress={handleBack}
             disabled={saving}
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
             activeOpacity={0.7}
@@ -203,50 +292,59 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
                   style={[styles.input, styles.flex]}
                   value={password}
                   onChangeText={t => { notifyActivity(); setPassword(t); }}
-                  secureTextEntry={!showPassword}
-                  placeholder="Digite ou gere uma senha"
+                  placeholder="Senha"
                   placeholderTextColor="#A8A199"
+                  secureTextEntry={!showPassword}
                   autoCapitalize="none"
                 />
                 <TouchableOpacity
                   style={styles.eyeButton}
-                  onPress={() => { notifyActivity(); setShowPassword(!showPassword); }}
+                  onPress={() => { notifyActivity(); setShowPassword(v => !v); }}
                 >
-                  <Text style={styles.eyeText}>{showPassword ? 'Ocultar' : 'Mostrar'}</Text>
+                  <Text style={styles.eyeText}>{showPassword ? 'Ocultar' : 'Ver'}</Text>
                 </TouchableOpacity>
               </View>
-              {password.length > 0 && <PasswordStrengthBar score={evaluateStrength(password)} />}
             </View>
+
+            {password.length > 0 && (
+              <View style={styles.field}>
+                <PasswordStrengthBar score={evaluateStrength(password)} />
+              </View>
+            )}
 
             <View style={styles.genRow}>
               <TouchableOpacity style={styles.genButton} onPress={handleGenerate}>
-                <Text style={styles.genText}>Gerar Aleatoria</Text>
+                <Text style={styles.genText}>Gerar Aleatória</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.genButton} onPress={handleGenerateWords}>
-                <Text style={styles.genText}>Gerar por Palavras</Text>
+                <Text style={styles.genText}>Gerar Palavras</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.genOptions}>
-              <Text style={styles.smallLabel}>Tamanho da senha: {genLength}</Text>
+              <Text style={styles.smallLabel}>Tamanho da senha aleatoria: {genLength}</Text>
               <View style={styles.lengthRow}>
-                <TouchableOpacity onPress={() => { notifyActivity(); setGenLength(Math.max(8, genLength - 1)); }}>
+                <TouchableOpacity
+                  onPress={() => { notifyActivity(); setGenLength(l => Math.max(8, l - 1)); }}
+                >
                   <Text style={styles.lengthBtn}>-</Text>
                 </TouchableOpacity>
                 <View style={styles.lengthBar}>
                   <View style={[styles.lengthFill, { width: `${((genLength - 8) / 24) * 100}%` }]} />
                 </View>
-                <TouchableOpacity onPress={() => { notifyActivity(); setGenLength(Math.min(32, genLength + 1)); }}>
+                <TouchableOpacity
+                  onPress={() => { notifyActivity(); setGenLength(l => Math.min(32, l + 1)); }}
+                >
                   <Text style={styles.lengthBtn}>+</Text>
                 </TouchableOpacity>
               </View>
+
               <View style={styles.switchRow}>
-                <Text style={styles.smallLabel}>Incluir Simbolos</Text>
+                <Text style={styles.smallLabel}>Incluir simbolos</Text>
                 <Switch
                   value={genSymbols}
                   onValueChange={v => { notifyActivity(); setGenSymbols(v); }}
-                  trackColor={{ true: '#B5824C', false: '#E6DFD5' }}
-                  thumbColor={genSymbols ? '#FFFFFF' : '#F4F1EA'}
+                  trackColor={{ false: '#E6DFD5', true: '#B5824C' }}
                 />
               </View>
             </View>
@@ -257,7 +355,7 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
                 style={styles.input}
                 value={url}
                 onChangeText={t => { notifyActivity(); setUrl(t); }}
-                placeholder="https://..."
+                placeholder="https://exemplo.com"
                 placeholderTextColor="#A8A199"
                 autoCapitalize="none"
                 keyboardType="url"
@@ -265,28 +363,19 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Tags (opcional, separadas por virgula)</Text>
-              <TextInput
-                style={styles.input}
-                value={tagsText}
-                onChangeText={t => { notifyActivity(); setTagsText(t); }}
-                placeholder="Ex: banco, cartao, principal"
-                placeholderTextColor="#A8A199"
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.field}>
               <Text style={styles.label}>Categoria</Text>
               <View style={styles.categoryRow}>
-                {vault?.categories.map(c => (
+                {vault?.categories.map(cat => (
                   <TouchableOpacity
-                    key={c.id}
-                    style={[styles.catChip, category === c.id && styles.catChipActive]}
-                    onPress={() => { notifyActivity(); setCategory(c.id); }}
+                    key={cat.id}
+                    style={[
+                      styles.catChip,
+                      category === cat.id && styles.catChipActive,
+                    ]}
+                    onPress={() => { notifyActivity(); setCategory(cat.id); }}
                   >
-                    <Text style={[styles.catText, category === c.id && styles.catTextActive]}>
-                      {c.name}
+                    <Text style={[styles.catText, category === cat.id && styles.catTextActive]}>
+                      {cat.name}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -294,7 +383,18 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Importancia</Text>
+              <Text style={styles.label}>Tags (separadas por virgula)</Text>
+              <TextInput
+                style={styles.input}
+                value={tagsText}
+                onChangeText={t => { notifyActivity(); setTagsText(t); }}
+                placeholder="ex: pessoal, banco, email"
+                placeholderTextColor="#A8A199"
+              />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Nivel de Importancia</Text>
               <View style={styles.categoryRow}>
                 {(['baixa', 'media', 'alta'] as ImportanceLevel[]).map(level => (
                   <TouchableOpacity
@@ -335,8 +435,164 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
               />
             </View>
           </View>
+
+          {/* US14: Seção de Notas Confidenciais Vinculadas */}
+          <View style={[styles.card, { marginTop: 16 }]}>
+            <Text style={styles.sectionHeaderTitle}>Notas Confidenciais Vinculadas</Text>
+
+            {editingItem && linkedNotes.length > 0 && (
+              <View style={styles.linkedSection}>
+                <Text style={styles.sublabel}>Notas já vinculadas a esta credencial:</Text>
+                {linkedNotes.map(note => (
+                  <View key={note.id} style={styles.linkedNoteCard}>
+                    <TouchableOpacity
+                      style={styles.linkedNoteContent}
+                      onPress={() => {
+                        notifyActivity();
+                        setSelectedNoteModalItem(note);
+                        setNoteModalVisible(true);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.linkedNoteHeader}>
+                        <Text style={styles.linkedNoteTitle} numberOfLines={1}>{note.title}</Text>
+                        {note.isFavorite && (
+                          <View style={styles.miniBadgeFav}>
+                            <Text style={styles.miniBadgeFavText}>★ Favorita</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.linkedNoteSnippet} numberOfLines={1}>
+                        {note.content}
+                      </Text>
+                      {note.observations ? (
+                        <Text style={styles.linkedNoteObs} numberOfLines={1}>
+                          Obs: {note.observations}
+                        </Text>
+                      ) : null}
+                    </TouchableOpacity>
+
+                    <View style={styles.linkedNoteActions}>
+                      <TouchableOpacity
+                        style={styles.openNoteBtn}
+                        onPress={() => {
+                          notifyActivity();
+                          setSelectedNoteModalItem(note);
+                          setNoteModalVisible(true);
+                        }}
+                      >
+                        <Text style={styles.openNoteText}>Editar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.unlinkBtn}
+                        onPress={() => handleUnlinkNote(note)}
+                      >
+                        <Text style={styles.unlinkText}>Desvincular</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.newNoteSection}>
+              <Text style={styles.sublabel}>
+                {editingItem ? 'Criar nova nota vinculada:' : 'Adicionar nota sigilosa vinculada:'}
+              </Text>
+
+              <View style={styles.field}>
+                <Text style={styles.label}>Título da Nota (opcional)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={quickNoteTitle}
+                  onChangeText={t => { notifyActivity(); setQuickNoteTitle(t); }}
+                  placeholder={`Nota - ${service.trim() || 'Credencial'}`}
+                  placeholderTextColor="#A8A199"
+                />
+              </View>
+
+              <View style={styles.field}>
+                <Text style={styles.label}>Conteúdo Confidencial da Nota</Text>
+                <TextInput
+                  style={[styles.input, styles.noteTextArea]}
+                  value={quickNoteContent}
+                  onChangeText={t => { notifyActivity(); setQuickNoteContent(t); }}
+                  placeholder="Ex: Perguntas de segurança, código PUK, chave de recuperação..."
+                  placeholderTextColor="#A8A199"
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.toggleAdvancedBtn}
+                onPress={() => {
+                  notifyActivity();
+                  setShowNoteAdvanced(prev => !prev);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.toggleAdvancedText}>
+                  {showNoteAdvanced ? '▲ Ocultar opções da nota' : '▼ Mais opções da nota (auto-destruição e favorita)'}
+                </Text>
+              </TouchableOpacity>
+
+              {showNoteAdvanced && (
+                <View style={styles.noteAdvancedBox}>
+                  <View style={styles.switchRow}>
+                    <Text style={styles.smallLabel}>Marcar como Favorita</Text>
+                    <Switch
+                      value={quickNoteFavorite}
+                      onValueChange={v => { notifyActivity(); setQuickNoteFavorite(v); }}
+                      trackColor={{ false: '#E6DFD5', true: '#B5824C' }}
+                    />
+                  </View>
+
+                  <Text style={[styles.label, { marginTop: 12 }]}>Auto-destruição</Text>
+                  <View style={styles.destructRow}>
+                    {[
+                      { label: 'Nunca', days: 0 },
+                      { label: '10 seg', days: -10 },
+                      { label: '1 dia', days: 1 },
+                      { label: '7 dias', days: 7 },
+                      { label: '30 dias', days: 30 },
+                    ].map(opt => (
+                      <TouchableOpacity
+                        key={opt.days}
+                        style={[
+                          styles.destructChip,
+                          quickNoteDestructDays === opt.days && styles.destructChipActive,
+                        ]}
+                        onPress={() => { notifyActivity(); setQuickNoteDestructDays(opt.days); }}
+                      >
+                        <Text
+                          style={[
+                            styles.destructText,
+                            quickNoteDestructDays === opt.days && styles.destructTextActive,
+                          ]}
+                        >
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {noteModalVisible && (
+        <NoteFormModal
+          visible={noteModalVisible}
+          editingItem={selectedNoteModalItem}
+          onClose={() => {
+            setNoteModalVisible(false);
+            setSelectedNoteModalItem(null);
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -383,6 +639,153 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 8,
     elevation: 1,
+  },
+  sectionHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E1E1E',
+    marginBottom: 12,
+  },
+  sublabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#756F68',
+    marginBottom: 8,
+  },
+  linkedSection: {
+    marginBottom: 16,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderColor: '#F0ECE6',
+  },
+  linkedNoteCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FBF9F5',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E6DFD5',
+    padding: 10,
+    marginBottom: 8,
+  },
+  linkedNoteContent: {
+    flex: 1,
+    marginRight: 8,
+  },
+  linkedNoteHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  linkedNoteTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1E1E1E',
+  },
+  miniBadgeFav: {
+    backgroundColor: '#FFF9EE',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#EED8A1',
+  },
+  miniBadgeFavText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#996515',
+  },
+  linkedNoteSnippet: {
+    fontSize: 11,
+    color: '#756F68',
+  },
+  linkedNoteObs: {
+    fontSize: 10,
+    color: '#996515',
+    marginTop: 2,
+  },
+  linkedNoteActions: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  openNoteBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    backgroundColor: '#F3EFE8',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E6DFD5',
+  },
+  openNoteText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#555',
+  },
+  unlinkBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    backgroundColor: '#FDEEE9',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#F9D5CB',
+  },
+  unlinkText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#D9534F',
+  },
+  newNoteSection: {
+    marginTop: 4,
+  },
+  noteTextArea: {
+    minHeight: 68,
+    textAlignVertical: 'top',
+  },
+  toggleAdvancedBtn: {
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  toggleAdvancedText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B5824C',
+  },
+  noteAdvancedBox: {
+    backgroundColor: '#FAF9F6',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E6DFD5',
+  },
+  destructRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  destructChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E6DFD5',
+  },
+  destructChipActive: {
+    backgroundColor: '#FFF9EE',
+    borderColor: '#B5824C',
+  },
+  destructText: {
+    color: '#756F68',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  destructTextActive: {
+    color: '#996515',
+    fontWeight: '700',
   },
   field: { marginBottom: 16 },
   label: { color: '#756F68', fontSize: 12, fontWeight: '600', marginBottom: 6 },

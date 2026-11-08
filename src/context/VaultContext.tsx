@@ -9,10 +9,10 @@ interface VaultContextType {
   loading: boolean;
   /** Mensagem de erro ao abrir o cofre (ex.: dados corrompidos). */
   error: string | null;
-  addPassword: (item: Omit<PasswordItem, 'id' | 'createdAt' | 'updatedAt' | 'history'>) => Promise<void>;
+  addPassword: (item: Omit<PasswordItem, 'id' | 'createdAt' | 'updatedAt' | 'history'>) => Promise<PasswordItem>;
   updatePassword: (id: string, changes: Partial<PasswordItem>) => Promise<void>;
   deletePassword: (id: string) => Promise<void>;
-  addNote: (item: Omit<NoteItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addNote: (item: Omit<NoteItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<NoteItem | undefined>;
   updateNote: (id: string, changes: Partial<NoteItem>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   addCategory: (item: Omit<CategoryItem, 'id'>) => Promise<void>;
@@ -75,7 +75,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.mode, reload]);
 
-  const addPassword = useCallback(async (item: Omit<PasswordItem, 'id' | 'createdAt' | 'updatedAt' | 'history'>) => {
+  const addPassword = useCallback(async (item: Omit<PasswordItem, 'id' | 'createdAt' | 'updatedAt' | 'history'>): Promise<PasswordItem> => {
     const current = requireVault();
     const now = Date.now();
     const newItem: PasswordItem = {
@@ -86,6 +86,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       history: [],
     };
     await persist({ ...current, passwords: [...current.passwords, newItem] });
+    return newItem;
   }, [requireVault, persist]);
 
   const updatePassword = useCallback(async (id: string, changes: Partial<PasswordItem>) => {
@@ -110,11 +111,12 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     await persist({ ...current, passwords: current.passwords.filter(p => p.id !== id) });
   }, [requireVault, persist]);
 
-  const addNote = useCallback(async (item: Omit<NoteItem, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!vault) return;
+  const addNote = useCallback(async (item: Omit<NoteItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<NoteItem | undefined> => {
+    if (!vault) return undefined;
     const now = Date.now();
     const newItem: NoteItem = { ...item, id: generateId(), createdAt: now, updatedAt: now };
     await persist({ ...vault, notes: [...vault.notes, newItem] });
+    return newItem;
   }, [vault, persist]);
 
   const updateNote = useCallback(async (id: string, changes: Partial<NoteItem>) => {
