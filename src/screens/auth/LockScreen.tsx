@@ -6,15 +6,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth, MAX_FAILED_ATTEMPTS } from '../../context/AuthContext';
 import { authenticateWithBiometrics, isBiometricAvailable } from '../../hooks/useBiometrics';
 import { FaceAuthModal } from '../../components/FaceAuthModal';
+import { useThemeColors } from '../../theme/useThemeColors';
+import { checkSafeZoneAccess, getConfiguredSafeZones } from '../../utils/locationGuard';
 
 export function LockScreen() {
   const { state, unlockWithPin, unlockWithBiometrics, unlockWithFace } = useAuth();
+  const colors = useThemeColors();
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [biometricReady, setBiometricReady] = useState(false);
   const [faceModalVisible, setFaceModalVisible] = useState(false);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
   const busyRef = useRef(false);
+  const safeZonesCount = getConfiguredSafeZones(state.config).length;
 
   // Contagem regressiva derivada do timestamp persistido (state.lockoutUntil).
   // Quando o tempo acaba, o desbloqueio volta a funcionar automaticamente.
@@ -38,10 +43,19 @@ export function LockScreen() {
     if (res.success) {
       const ok = await unlockWithBiometrics();
       if (!ok) {
+        if (state.config.locationLockEnabled && safeZonesCount > 0) {
+          const loc = await checkSafeZoneAccess(state.config);
+          if (!loc.allowed) {
+            const msg = loc.reason || 'Acesso permitido apenas dentro de uma zona segura.';
+            setLocationMessage(msg);
+            Alert.alert('Acesso Bloqueado (GPS)', msg);
+            return;
+          }
+        }
         Alert.alert('PIN Necessário', 'Digite o PIN mestre para desbloquear.');
       }
     }
-  }, [isLocked, unlockWithBiometrics]);
+  }, [isLocked, unlockWithBiometrics, state.config, safeZonesCount]);
 
   useEffect(() => {
     (async () => {
@@ -89,6 +103,14 @@ export function LockScreen() {
       case 'locked':
         setNow(Date.now());
         return;
+      case 'outside_safe_zone': {
+        Vibration.vibrate(200);
+        const loc = await checkSafeZoneAccess(state.config);
+        const msg = loc.reason || 'Você está fora das zonas seguras cadastradas.';
+        setLocationMessage(msg);
+        Alert.alert('Acesso Bloqueado (GPS)', msg);
+        return;
+      }
       case 'wrong': {
         Vibration.vibrate(200);
         const remaining = MAX_FAILED_ATTEMPTS - (state.failedAttempts + 1);
@@ -123,7 +145,11 @@ export function LockScreen() {
       {[0, 1, 2, 3].map(i => (
         <View
           key={i}
-          style={[styles.dot, i < pin.length && styles.dotFilled]}
+          style={[
+            styles.dot,
+            { borderColor: colors.borderStrong },
+            i < pin.length && { backgroundColor: colors.accent, borderColor: colors.accent },
+          ]}
         />
       ))}
     </View>
@@ -137,23 +163,31 @@ export function LockScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.content}>
-        <Text style={styles.appName}>Guardião Pessoal</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.appName, { color: colors.text }]}>Guardião Pessoal</Text>
+        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           {busy ? 'Verificando...' : 'Digite seu PIN de 4 dígitos'}
         </Text>
+
+        {state.config.locationLockEnabled && safeZonesCount > 0 && (
+          <View style={[styles.gpsBadge, { backgroundColor: colors.accentBg, borderColor: colors.accentBorder }]}>
+            <Text style={[styles.gpsBadgeText, { color: colors.accent }]}>
+              {locationMessage ? `GPS: ${locationMessage}` : `Proteção por Zona Segura ativa (${safeZonesCount})`}
+            </Text>
+          </View>
+        )}
 
         {renderDots()}
 
         {isLocked && (
-          <Text style={styles.lockText}>
+          <Text style={[styles.lockText, { color: colors.danger }]}>
             Bloqueado por {lockCountdown}s
           </Text>
         )}
 
         {state.failedAttempts > 0 && !isLocked && (
-          <Text style={styles.errorText}>
+          <Text style={[styles.errorText, { color: colors.warning }]}>
             {state.failedAttempts} tentativa(s) incorreta(s)
           </Text>
         )}
@@ -169,13 +203,14 @@ export function LockScreen() {
                     key={val}
                     style={[
                       styles.keyButton,
+                      { backgroundColor: colors.surface, borderColor: colors.accent },
                       (isLocked || busy) && styles.keyDisabled,
-                      val === 'face' && styles.faceButton,
+                      val === 'face' && { backgroundColor: colors.accentBg, borderColor: colors.accentBorder },
                     ]}
                     onPress={() => handleKeyPress(val)}
                     disabled={isLocked || busy}
                   >
-                    <Text style={[styles.keyText, val === 'face' && styles.faceText]}>
+                    <Text style={[styles.keyText, { color: colors.text }, val === 'face' && { fontSize: 13, color: colors.accent, fontWeight: '700' }]}>
                       {val === 'face' ? 'Face' : val}
                     </Text>
                   </TouchableOpacity>
@@ -187,11 +222,11 @@ export function LockScreen() {
 
         {biometricReady && state.config.biometricsEnabled && (
           <TouchableOpacity
-            style={[styles.bioButton, (isLocked || busy) && styles.keyDisabled]}
+            style={[styles.bioButton, { backgroundColor: colors.surface, borderColor: colors.accent }, (isLocked || busy) && styles.keyDisabled]}
             onPress={tryBiometric}
             disabled={isLocked || busy}
           >
-            <Text style={styles.bioText}>Usar Impressão Digital</Text>
+            <Text style={[styles.bioText, { color: colors.accent }]}>Usar Impressão Digital</Text>
           </TouchableOpacity>
         )}
 
@@ -202,6 +237,15 @@ export function LockScreen() {
             setFaceModalVisible(false);
             const ok = await unlockWithFace();
             if (!ok) {
+              if (state.config.locationLockEnabled && safeZonesCount > 0) {
+                const loc = await checkSafeZoneAccess(state.config);
+                if (!loc.allowed) {
+                  const msg = loc.reason || 'Acesso permitido apenas dentro de uma zona segura.';
+                  setLocationMessage(msg);
+                  Alert.alert('Acesso Bloqueado (GPS)', msg);
+                  return;
+                }
+              }
               Alert.alert('PIN Necessário', 'Digite o PIN mestre para desbloquear.');
             }
           }}
@@ -263,4 +307,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   bioText: { color: '#B5824C', fontSize: 14, fontWeight: '600' },
+  gpsBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 16,
+    maxWidth: 300,
+  },
+  gpsBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });

@@ -19,6 +19,7 @@ interface VaultContextType {
   deleteCategory: (id: string) => Promise<void>;
   addFolder: (item: Omit<FolderItem, 'id'>) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
+  replaceVault: (newVault: VaultData) => Promise<void>;
   reload: () => Promise<void>;
 }
 
@@ -154,6 +155,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     await persist({ ...vault, folders: vault.folders.filter(f => f.id !== id) });
   }, [vault, persist]);
 
+  const replaceVault = useCallback(async (newVault: VaultData) => {
+    await persist(newVault);
+  }, [persist]);
+
   return (
     <VaultContext.Provider value={{
       vault, loading, error,
@@ -161,6 +166,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       addNote, updateNote, deleteNote,
       addCategory, deleteCategory,
       addFolder, deleteFolder,
+      replaceVault,
       reload,
     }}>
       {children}

@@ -11,6 +11,7 @@ const KEY_LOCKOUT_UNTIL = 'gp_lockout_until';
 const KEY_DEVICE_PEPPER = 'gp_device_pepper';
 const KEY_LOG_KEY = 'gp_log_key';
 const KEY_BIO_PIN = 'gp_bio_pin';
+const KEY_FACE_TEMPLATE = 'gp_face_template';
 
 // Chaves de versoes anteriores: apenas removidas no wipe / ao iniciar sessao.
 const LEGACY_KEYS = [
@@ -146,6 +147,39 @@ export async function setBioPin(pin: string | null): Promise<void> {
   }
 }
 
+export async function getFaceTemplate(): Promise<number[][] | null> {
+  try {
+    const raw = await SecureStore.getItemAsync(KEY_FACE_TEMPLATE);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0 && Array.isArray(parsed[0])) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setFaceTemplate(embeddings: number[][] | null): Promise<void> {
+  if (embeddings && embeddings.length > 0) {
+    // Arredonda para 5 casas decimais para caber confortavelmente no limite do SecureStore
+    const compact = embeddings.map(vec => vec.map(v => Math.round(v * 100000) / 100000));
+    await SecureStore.setItemAsync(KEY_FACE_TEMPLATE, JSON.stringify(compact));
+  } else {
+    try {
+      await SecureStore.deleteItemAsync(KEY_FACE_TEMPLATE);
+    } catch {
+      // ignora
+    }
+  }
+}
+
+export async function hasFaceTemplate(): Promise<boolean> {
+  const tpl = await getFaceTemplate();
+  return tpl !== null && tpl.length > 0;
+}
+
 export async function clearAllSecureStorage(): Promise<void> {
   sessionSecret = null;
   const keys = [
@@ -159,6 +193,7 @@ export async function clearAllSecureStorage(): Promise<void> {
     KEY_DEVICE_PEPPER,
     KEY_LOG_KEY,
     KEY_BIO_PIN,
+    KEY_FACE_TEMPLATE,
     ...LEGACY_KEYS,
   ];
 

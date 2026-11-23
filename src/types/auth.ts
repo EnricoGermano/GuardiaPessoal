@@ -1,5 +1,14 @@
 export type AuthMode = 'setup' | 'locked' | 'unlocked';
 
+export interface SafeZone {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  createdAt: number;
+}
+
 export interface SecurityConfig {
   isConfigured: boolean;
   biometricsEnabled: boolean;
@@ -10,6 +19,7 @@ export interface SecurityConfig {
   safeLatitude?: number;
   safeLongitude?: number;
   safeRadiusMeters?: number;
+  safeZones?: SafeZone[];
   screenProtectionEnabled: boolean;
   offlineOnly: boolean;
   highContrast: boolean;

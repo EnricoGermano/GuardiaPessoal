@@ -14,6 +14,7 @@ import { NoteFormModal } from '../notes/NoteFormModal';
 import { SecurityDashboardModal } from '../settings/SecurityDashboardModal';
 import { SettingsModal } from '../settings/SettingsModal';
 import { AccessLogsModal } from '../settings/AccessLogsModal';
+import { useThemeColors } from '../../theme/useThemeColors';
 import type { PasswordItem, NoteItem } from '../../types/vault';
 
 type Tab = 'passwords' | 'notes' | 'add';
@@ -24,6 +25,7 @@ const REVEAL_TIMEOUT_MS = 15000;
 
 export function HomeScreen() {
   const { state, lock, updateConfig } = useAuth();
+  const colors = useThemeColors();
   const { vault, loading, error, deletePassword, deleteNote, reload } = useVault();
   const { copyWithTimer } = useClipboardTimer();
 
@@ -191,15 +193,15 @@ export function HomeScreen() {
       : [];
 
     return (
-      <View style={styles.itemCard}>
+      <View style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.itemHeader}>
-          <Text style={styles.itemService} numberOfLines={1}>{item.service}</Text>
+          <Text style={[styles.itemService, { color: colors.text }]} numberOfLines={1}>{item.service}</Text>
           <View style={[styles.badge, { backgroundColor: badge.bg }]}>
             <Text style={[styles.badgeText, { color: badge.text }]}>{badge.label}</Text>
           </View>
         </View>
 
-        <Text style={styles.itemUser}>{item.username}</Text>
+        <Text style={[styles.itemUser, { color: colors.textSecondary }]}>{item.username}</Text>
 
         {item.tags && item.tags.length > 0 && (
           <View style={styles.tagsRow}>
@@ -236,15 +238,15 @@ export function HomeScreen() {
           </View>
         )}
 
-        <View style={styles.passwordRow}>
-          <Text style={styles.passwordText} selectable={false} numberOfLines={1}>
+        <View style={[styles.passwordRow, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+          <Text style={[styles.passwordText, { color: colors.text }]} selectable={false} numberOfLines={1}>
             {revealed ? item.password : MASK}
           </Text>
           <TouchableOpacity
-            style={styles.actionBtn}
+            style={[styles.actionBtn, { backgroundColor: colors.accentBg, borderColor: colors.accentBorder }]}
             onPress={() => setRevealedId(revealed ? null : item.id)}
           >
-            <Text style={styles.actionText}>{revealed ? 'Ocultar' : 'Mostrar'}</Text>
+            <Text style={[styles.actionText, { color: colors.accent }]}>{revealed ? 'Ocultar' : 'Mostrar'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -300,7 +302,7 @@ export function HomeScreen() {
 
     return (
       <TouchableOpacity
-        style={styles.itemCard}
+        style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
         activeOpacity={0.85}
         onPress={() => {
           setEditingNote(item);
@@ -308,7 +310,7 @@ export function HomeScreen() {
         }}
       >
         <View style={styles.itemHeader}>
-          <Text style={styles.itemService} numberOfLines={1}>{item.title}</Text>
+          <Text style={[styles.itemService, { color: colors.text }]} numberOfLines={1}>{item.title}</Text>
           <View style={styles.badgesRow}>
             {item.isFavorite && (
               <View style={[styles.badge, { backgroundColor: '#FFF9EE' }]}>
@@ -375,15 +377,15 @@ export function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} onStartShouldSetResponderCapture={handleTouchCapture}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} onStartShouldSetResponderCapture={handleTouchCapture}>
       <PrivacyShield visible={shieldVisible} onDismiss={() => setShieldVisible(false)} />
 
       <Pressable
-        style={styles.header}
+        style={[styles.header, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={() => setShieldVisible(true)}
         onLongPress={() => setShieldVisible(true)}
       >
-        <Text style={styles.headerTitle} numberOfLines={1}>Guardião Pessoal</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>Guardião Pessoal</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={[
@@ -436,33 +438,33 @@ export function HomeScreen() {
       </Pressable>
 
       {/* Tabs: Senhas / Notas */}
-      <View style={styles.tabs}>
+      <View style={[styles.tabs, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <TouchableOpacity
           style={styles.tab}
           onPress={() => { resetTimer(); setTab('passwords'); }}
         >
-          <Text style={[styles.tabText, tab === 'passwords' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, { color: colors.textMuted }, tab === 'passwords' && { color: colors.accent, fontWeight: '700' }]}>
             Senhas ({vault?.passwords.length || 0})
           </Text>
-          {tab === 'passwords' && <View style={styles.tabIndicator} />}
+          {tab === 'passwords' && <View style={[styles.tabIndicator, { backgroundColor: colors.accent }]} />}
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.tab}
           onPress={() => { resetTimer(); setTab('notes'); }}
         >
-          <Text style={[styles.tabText, tab === 'notes' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, { color: colors.textMuted }, tab === 'notes' && { color: colors.accent, fontWeight: '700' }]}>
             Notas ({vault ? vault.notes.filter(n => !n.isHidden && (!n.expiresAt || n.expiresAt > nowTs)).length : 0})
           </Text>
-          {tab === 'notes' && <View style={styles.tabIndicator} />}
+          {tab === 'notes' && <View style={[styles.tabIndicator, { backgroundColor: colors.accent }]} />}
         </TouchableOpacity>
       </View>
 
       {/* Campo de Busca em tempo real (US15) */}
       <View style={styles.searchContainer}>
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { backgroundColor: colors.surface, borderColor: colors.borderStrong, color: colors.text }]}
           placeholder={tab === 'passwords' ? 'Buscar credencial ou tag...' : 'Buscar nota confidencial...'}
-          placeholderTextColor="#A8A199"
+          placeholderTextColor={colors.placeholder}
           value={search}
           onChangeText={t => { resetTimer(); setSearch(t); }}
         />
@@ -569,7 +571,7 @@ export function HomeScreen() {
 
       {!error && (
         <TouchableOpacity
-          style={styles.fab}
+          style={[styles.fab, { backgroundColor: colors.accent }]}
           onPress={() => {
             resetTimer();
             if (tab === 'notes') {
@@ -582,7 +584,7 @@ export function HomeScreen() {
             }
           }}
         >
-          <Text style={styles.fabText}>+</Text>
+          <Text style={[styles.fabText, { color: colors.accentText }]}>+</Text>
         </TouchableOpacity>
       )}
 

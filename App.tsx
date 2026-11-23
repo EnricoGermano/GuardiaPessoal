@@ -21,22 +21,25 @@ function AppContent() {
     }
   }, [state.config.screenProtectionEnabled]);
 
+  const bgColor = state.config.highContrast ? '#000000' : '#FBF9F5';
+
   if (!state.isReady) {
-    return <View style={styles.container} />;
-  }
-
-  if (state.mode === 'setup') {
-    return <SetupScreen />;
-  }
-
-  if (state.mode === 'locked') {
-    return <LockScreen />;
+    return <View style={[styles.container, { backgroundColor: bgColor }]} />;
   }
 
   return (
-    <VaultProvider>
-      <HomeScreen />
-    </VaultProvider>
+    <View style={[styles.container, { backgroundColor: bgColor }]}>
+      <StatusBar style={state.config.highContrast ? 'light' : 'dark'} />
+      {state.mode === 'setup' ? (
+        <SetupScreen />
+      ) : state.mode === 'locked' ? (
+        <LockScreen />
+      ) : (
+        <VaultProvider>
+          <HomeScreen />
+        </VaultProvider>
+      )}
+    </View>
   );
 }
 
@@ -44,10 +47,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <View style={styles.container}>
-          <StatusBar style="dark" />
-          <AppContent />
-        </View>
+        <AppContent />
       </AuthProvider>
     </SafeAreaProvider>
   );

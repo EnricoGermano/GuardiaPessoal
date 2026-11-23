@@ -18,6 +18,7 @@ import {
   deleteVault, saveAccessLog, saveVault, loadVault,
   saveSecurityConfig, loadSecurityConfig,
 } from '../storage/vaultStorage';
+import { checkSafeZoneAccess } from '../utils/locationGuard';
 
 /** Numero de erros que apaga o cofre. */
 export const MAX_FAILED_ATTEMPTS = 10;
@@ -102,8 +103,9 @@ function reducer(state: AuthState, action: Action): AuthState {
  * - emergency: PIN de emergencia digitado, dados apagados
  * - wiped: limite de tentativas atingido, dados apagados
  */
-export type UnlockResult = 'unlocked' | 'wrong' | 'locked' | 'emergency' | 'wiped';
+export type UnlockResult = 'unlocked' | 'wrong' | 'locked' | 'emergency' | 'wiped' | 'outside_safe_zone';
 export type ChangePinResult = 'ok' | 'wrong_old' | 'same_as_emergency' | 'same_as_old';
+export type ChangeEmergencyPinResult = 'ok' | 'wrong_master' | 'same_as_master';
 
 interface AuthContextType {
   state: AuthState;
@@ -112,6 +114,7 @@ interface AuthContextType {
   unlockWithBiometrics: () => Promise<boolean>;
   unlockWithFace: () => Promise<boolean>;
   changeMasterPin: (oldPin: string, newPin: string) => Promise<ChangePinResult>;
+  changeEmergencyPin: (masterPin: string, newEmergencyPin: string) => Promise<ChangeEmergencyPinResult>;
   updateConfig: (config: Partial<SecurityConfig>) => Promise<void>;
   lock: () => void;
   wipeAll: () => Promise<void>;
@@ -199,6 +202,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const masterHash = await getMasterHash();
     if (masterHash && inputHash === masterHash) {
+      const savedConfig = await loadSecurityConfig();
+      const effectiveConfig: SecurityConfig = { ...DEFAULT_CONFIG, ...savedConfig, isConfigured: true };
+      const locCheck = await checkSafeZoneAccess(effectiveConfig);
+      if (!locCheck.allowed) {
+        await logAccess(false, 'pin', locCheck.reason || 'Fora da zona segura (GPS)');
+        return 'outside_safe_zone';
+      }
       await setAttemptState({ failedAttempts: 0, lockoutUntil: 0 });
       await setSessionSecret(pin);
       await setBioPin(pin);
@@ -228,6 +238,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const bioPin = await getBioPin();
     if (!bioPin) return false;
 
+    const savedConfig = await loadSecurityConfig();
+    const effectiveConfig: SecurityConfig = { ...DEFAULT_CONFIG, ...savedConfig, isConfigured: true };
+    const locCheck = await checkSafeZoneAccess(effectiveConfig);
+    if (!locCheck.allowed) {
+      await logAccess(false, 'biometric', locCheck.reason || 'Fora da zona segura (GPS)');
+      return false;
+    }
+
     await setAttemptState({ failedAttempts: 0, lockoutUntil: 0 });
     await setSessionSecret(bioPin);
     await logAccess(true, 'biometric');
@@ -241,6 +259,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const bioPin = await getBioPin();
     if (!bioPin) return false;
+
+    const savedConfig = await loadSecurityConfig();
+    const effectiveConfig: SecurityConfig = { ...DEFAULT_CONFIG, ...savedConfig, isConfigured: true };
+    const locCheck = await checkSafeZoneAccess(effectiveConfig);
+    if (!locCheck.allowed) {
+      await logAccess(false, 'face', locCheck.reason || 'Fora da zona segura (GPS)');
+      return false;
+    }
 
     await setAttemptState({ failedAttempts: 0, lockoutUntil: 0 });
     await setSessionSecret(bioPin);
@@ -281,6 +307,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return 'ok';
   }, []);
 
+  const changeEmergencyPin = useCallback(async (masterPin: string, newEmergencyPin: string): Promise<ChangeEmergencyPinResult> => {
+    const salt = await getMasterSalt();
+    if (!salt) return 'wrong_master';
+
+    const iterations = (await getKdfIterations()) ?? LEGACY_PBKDF2_ITERATIONS;
+    const masterHash = await getMasterHash();
+    const inputMasterHash = hashPin(masterPin, salt, iterations);
+
+    if (!masterHash || inputMasterHash !== masterHash) return 'wrong_master';
+    if (newEmergencyPin === masterPin) return 'same_as_master';
+
+    const emergencyHash = hashPin(newEmergencyPin, salt, iterations);
+    await setEmergencyHash(emergencyHash);
+    return 'ok';
+  }, []);
+
   const updateConfig = useCallback(async (newConfig: Partial<SecurityConfig>) => {
     await saveSecurityConfig(newConfig);
     dispatch({ type: 'UPDATE_CONFIG', config: newConfig });
@@ -301,6 +343,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unlockWithBiometrics,
       unlockWithFace,
       changeMasterPin,
+      changeEmergencyPin,
       updateConfig,
       lock,
       wipeAll,
