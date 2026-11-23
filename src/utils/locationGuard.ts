@@ -84,6 +84,48 @@ export async function getCurrentCoordinates(): Promise<{
 }
 
 /**
+ * Converte um texto de endereco em coordenadas geograficas (latitude e longitude).
+ */
+export async function geocodeAddress(
+  address: string
+): Promise<{ latitude: number; longitude: number }> {
+  const trimmed = address.trim();
+  if (!trimmed) {
+    throw new Error('Informe um endereço para buscar.');
+  }
+
+  const results = await Location.geocodeAsync(trimmed);
+  if (!results || results.length === 0) {
+    throw new Error(`Endereço não encontrado: "${trimmed}". Verifique se o nome da rua, número ou cidade estão corretos.`);
+  }
+
+  return {
+    latitude: results[0].latitude,
+    longitude: results[0].longitude,
+  };
+}
+
+/**
+ * Obtém o nome legível de um endereço a partir de coordenadas (opcional/complementar).
+ */
+export async function reverseGeocodeCoords(
+  latitude: number,
+  longitude: number
+): Promise<string | undefined> {
+  try {
+    const results = await Location.reverseGeocodeAsync({ latitude, longitude });
+    if (results && results.length > 0) {
+      const item = results[0];
+      const parts = [item.street, item.streetNumber, item.subregion || item.city, item.region].filter(Boolean);
+      return parts.join(', ');
+    }
+  } catch {
+    // ignora se falhar
+  }
+  return undefined;
+}
+
+/**
  * Verifica se o aparelho esta dentro de pelo menos uma zona segura cadastrada.
  * Se o bloqueio por localizacao estiver desativado ou nao houver zonas, libera o acesso.
  */

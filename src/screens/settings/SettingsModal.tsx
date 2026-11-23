@@ -20,7 +20,7 @@ import { calculatePinStrength } from '../../components/PasswordStrengthBar';
 import { FaceAuthModal } from '../../components/FaceAuthModal';
 import { hasFaceTemplate, setFaceTemplate } from '../../storage/secureStorage';
 import { useThemeColors } from '../../theme/useThemeColors';
-import { getConfiguredSafeZones, getCurrentCoordinates } from '../../utils/locationGuard';
+import { getConfiguredSafeZones, getCurrentCoordinates, geocodeAddress } from '../../utils/locationGuard';
 import {
   exportEncryptedBackup,
   pickBackupFileContent,
@@ -56,7 +56,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
   const [faceEnrollModalVisible, setFaceEnrollModalVisible] = useState(false);
 
   // Zonas Seguras GPS (US18)
+  const [zoneMode, setZoneMode] = useState<'current' | 'address'>('address');
   const [zoneName, setZoneName] = useState('');
+  const [zoneAddress, setZoneAddress] = useState('');
   const [zoneRadius, setZoneRadius] = useState<number>(300);
   const [addingZone, setAddingZone] = useState(false);
 
@@ -107,13 +109,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
   };
 
   const handleAddSafeZone = async () => {
-    const trimmedName = zoneName.trim() || `Zona Segura ${safeZones.length + 1}`;
     setAddingZone(true);
     try {
-      const coords = await getCurrentCoordinates();
+      let coords: { latitude: number; longitude: number };
+      let finalName = zoneName.trim();
+      let usedAddress: string | undefined = undefined;
+
+      if (zoneMode === 'address') {
+        const cleanAddress = zoneAddress.trim();
+        if (!cleanAddress) {
+          Alert.alert('Atenção', 'Digite um endereço para cadastrar a zona segura (ex: Av. Paulista, 1000 - São Paulo).');
+          setAddingZone(false);
+          return;
+        }
+        coords = await geocodeAddress(cleanAddress);
+        usedAddress = cleanAddress;
+        if (!finalName) {
+          finalName = cleanAddress.split(',')[0].trim() || `Zona ${safeZones.length + 1}`;
+        }
+      } else {
+        coords = await getCurrentCoordinates();
+        if (!finalName) {
+          finalName = `Zona Atual ${safeZones.length + 1}`;
+        }
+      }
+
       const newZone: SafeZone = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        name: trimmedName,
+        name: finalName,
+        address: usedAddress,
         latitude: coords.latitude,
         longitude: coords.longitude,
         radiusMeters: zoneRadius,
@@ -125,12 +149,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
         locationLockEnabled: true,
       });
       setZoneName('');
+      setZoneAddress('');
       Alert.alert(
         'Zona Segura Adicionada',
         `"${newZone.name}" cadastrada com raio de ${newZone.radiusMeters}m.`
       );
     } catch (err: any) {
-      Alert.alert('Erro ao obter GPS', err?.message || 'Não foi possível capturar a localização atual.');
+      Alert.alert('Erro ao definir local', err?.message || 'Não foi possível obter as coordenadas.');
     } finally {
       setAddingZone(false);
     }
@@ -364,9 +389,59 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
             </View>
 
             <View style={{ marginTop: 12 }}>
+              <View style={[styles.chipsRow, { marginBottom: 12 }]}>
+                <TouchableOpacity
+                  style={[
+                    styles.chip,
+                    { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong },
+                    zoneMode === 'address' && { backgroundColor: colors.accentBg, borderColor: colors.accent },
+                  ]}
+                  onPress={() => setZoneMode('address')}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      { color: colors.textSecondary },
+                      zoneMode === 'address' && { color: colors.accent, fontWeight: '700' },
+                    ]}
+                  >
+                    Digitar Endereço
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.chip,
+                    { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong },
+                    zoneMode === 'current' && { backgroundColor: colors.accentBg, borderColor: colors.accent },
+                  ]}
+                  onPress={() => setZoneMode('current')}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      { color: colors.textSecondary },
+                      zoneMode === 'current' && { color: colors.accent, fontWeight: '700' },
+                    ]}
+                  >
+                    Local Atual (GPS)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {zoneMode === 'address' ? (
+                <TextInput
+                  style={[styles.input, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong, color: colors.text }]}
+                  placeholder="Endereço (ex: Av. Paulista, 1000, São Paulo)"
+                  placeholderTextColor={colors.placeholder}
+                  value={zoneAddress}
+                  onChangeText={setZoneAddress}
+                />
+              ) : null}
+
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong, color: colors.text }]}
-                placeholder="Nome do local (ex: Casa, Trabalho)"
+                placeholder={zoneMode === 'address' ? "Nome do local (opcional: Casa, Trabalho)" : "Nome do local (ex: Casa, Trabalho)"}
                 placeholderTextColor={colors.placeholder}
                 value={zoneName}
                 onChangeText={setZoneName}
@@ -405,7 +480,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                 {addingZone ? (
                   <ActivityIndicator size="small" color={colors.accent} />
                 ) : (
-                  <Text style={[styles.actionBtnText, { color: colors.accent }]}>Adicionar Local Atual (GPS)</Text>
+                  <Text style={[styles.actionBtnText, { color: colors.accent }]}>
+                    {zoneMode === 'address' ? 'Buscar e Salvar Endereço Seguro' : 'Adicionar Local Atual (GPS)'}
+                  </Text>
                 )}
               </TouchableOpacity>
 
@@ -413,6 +490,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                 <View key={zone.id} style={[styles.zoneRow, { borderColor: colors.border, backgroundColor: colors.surfaceAlt }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.itemTitle, { color: colors.text }]}>{zone.name}</Text>
+                    {zone.address ? (
+                      <Text style={[styles.itemSubtitle, { color: colors.textSecondary, marginBottom: 2 }]} numberOfLines={2}>
+                        📍 {zone.address}
+                      </Text>
+                    ) : null}
                     <Text style={[styles.itemSubtitle, { color: colors.textMuted }]}>
                       Raio: {zone.radiusMeters}m • {zone.latitude.toFixed(4)}, {zone.longitude.toFixed(4)}
                     </Text>

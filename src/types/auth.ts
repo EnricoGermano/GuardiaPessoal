@@ -3,6 +3,7 @@ export type AuthMode = 'setup' | 'locked' | 'unlocked';
 export interface SafeZone {
   id: string;
   name: string;
+  address?: string;
   latitude: number;
   longitude: number;
   radiusMeters: number;
