@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type { VaultData, PasswordItem, NoteItem, CategoryItem, FolderItem } from '../types/vault';
 import { saveVault, loadVault } from '../storage/vaultStorage';
 import { getSessionSecret } from '../storage/secureStorage';
@@ -38,6 +38,7 @@ function generateId(): string {
 export function VaultProvider({ children }: { children: React.ReactNode }) {
   const { state } = useAuth();
   const [vault, setVault] = useState<VaultData | null>(null);
+  const vaultRef = useRef<VaultData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,13 +48,14 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     if (!secret) throw new Error('Sessao expirada. Desbloqueie o cofre novamente.');
     const updated = { ...data, updatedAt: Date.now() };
     await saveVault(updated, secret);
+    vaultRef.current = updated;
     setVault(updated);
   }, []);
 
   const requireVault = useCallback((): VaultData => {
-    if (!vault) throw new Error('O cofre nao esta carregado.');
-    return vault;
-  }, [vault]);
+    if (!vaultRef.current) throw new Error('O cofre nao esta carregado.');
+    return vaultRef.current;
+  }, []);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -62,8 +64,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       const secret = await getSessionSecret();
       if (!secret) throw new Error('Sessao expirada.');
       const data = await loadVault(secret);
+      vaultRef.current = data;
       setVault(data);
     } catch {
+      vaultRef.current = null;
       setVault(null);
       setError('Nao foi possivel abrir o cofre. Os dados podem estar corrompidos ou foram alterados.');
     }
@@ -113,47 +117,54 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   }, [requireVault, persist]);
 
   const addNote = useCallback(async (item: Omit<NoteItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<NoteItem | undefined> => {
-    if (!vault) return undefined;
+    const current = vaultRef.current;
+    if (!current) return undefined;
     const now = Date.now();
     const newItem: NoteItem = { ...item, id: generateId(), createdAt: now, updatedAt: now };
-    await persist({ ...vault, notes: [...vault.notes, newItem] });
+    await persist({ ...current, notes: [...current.notes, newItem] });
     return newItem;
-  }, [vault, persist]);
+  }, [persist]);
 
   const updateNote = useCallback(async (id: string, changes: Partial<NoteItem>) => {
-    if (!vault) return;
-    const notes = vault.notes.map(n =>
+    const current = vaultRef.current;
+    if (!current) return;
+    const notes = current.notes.map(n =>
       n.id === id ? { ...n, ...changes, updatedAt: Date.now() } : n
     );
-    await persist({ ...vault, notes });
-  }, [vault, persist]);
+    await persist({ ...current, notes });
+  }, [persist]);
 
   const deleteNote = useCallback(async (id: string) => {
-    if (!vault) return;
-    await persist({ ...vault, notes: vault.notes.filter(n => n.id !== id) });
-  }, [vault, persist]);
+    const current = vaultRef.current;
+    if (!current) return;
+    await persist({ ...current, notes: current.notes.filter(n => n.id !== id) });
+  }, [persist]);
 
   const addCategory = useCallback(async (item: Omit<CategoryItem, 'id'>) => {
-    if (!vault) return;
+    const current = vaultRef.current;
+    if (!current) return;
     const newItem: CategoryItem = { ...item, id: generateId() };
-    await persist({ ...vault, categories: [...vault.categories, newItem] });
-  }, [vault, persist]);
+    await persist({ ...current, categories: [...current.categories, newItem] });
+  }, [persist]);
 
   const deleteCategory = useCallback(async (id: string) => {
-    if (!vault) return;
-    await persist({ ...vault, categories: vault.categories.filter(c => c.id !== id) });
-  }, [vault, persist]);
+    const current = vaultRef.current;
+    if (!current) return;
+    await persist({ ...current, categories: current.categories.filter(c => c.id !== id) });
+  }, [persist]);
 
   const addFolder = useCallback(async (item: Omit<FolderItem, 'id'>) => {
-    if (!vault) return;
+    const current = vaultRef.current;
+    if (!current) return;
     const newItem: FolderItem = { ...item, id: generateId() };
-    await persist({ ...vault, folders: [...vault.folders, newItem] });
-  }, [vault, persist]);
+    await persist({ ...current, folders: [...current.folders, newItem] });
+  }, [persist]);
 
   const deleteFolder = useCallback(async (id: string) => {
-    if (!vault) return;
-    await persist({ ...vault, folders: vault.folders.filter(f => f.id !== id) });
-  }, [vault, persist]);
+    const current = vaultRef.current;
+    if (!current) return;
+    await persist({ ...current, folders: current.folders.filter(f => f.id !== id) });
+  }, [persist]);
 
   const replaceVault = useCallback(async (newVault: VaultData) => {
     await persist(newVault);
