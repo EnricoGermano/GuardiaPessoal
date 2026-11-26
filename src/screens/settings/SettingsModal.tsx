@@ -56,7 +56,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
   const [faceEnrollModalVisible, setFaceEnrollModalVisible] = useState(false);
 
   // Zonas Seguras GPS (US18)
-  const [zoneMode, setZoneMode] = useState<'current' | 'address'>('address');
+  const [zoneMode, setZoneMode] = useState<'current' | 'address'>('current');
   const [zoneName, setZoneName] = useState('');
   const [zoneAddress, setZoneAddress] = useState('');
   const [zoneRadius, setZoneRadius] = useState<number>(300);
@@ -116,13 +116,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
       let usedAddress: string | undefined = undefined;
 
       if (zoneMode === 'address') {
+        if (state.config.offlineOnly) {
+          Alert.alert(
+            'Modo 100% Offline Ativo',
+            'A busca por endereço requer conexão com a internet. Use "Local Atual (GPS)" ou desative temporariamente o Modo 100% Offline.'
+          );
+          setAddingZone(false);
+          return;
+        }
         const cleanAddress = zoneAddress.trim();
         if (!cleanAddress) {
           Alert.alert('Atenção', 'Digite um endereço para cadastrar a zona segura (ex: Av. Paulista, 1000 - São Paulo).');
           setAddingZone(false);
           return;
         }
-        coords = await geocodeAddress(cleanAddress);
+        coords = await geocodeAddress(cleanAddress, state.config.offlineOnly);
         usedAddress = cleanAddress;
         if (!finalName) {
           finalName = cleanAddress.split(',')[0].trim() || `Zona ${safeZones.length + 1}`;
@@ -264,9 +272,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
             text: 'Importar e Substituir',
             style: 'destructive',
             onPress: async () => {
-              await replaceVault(importedVault);
-              setImportPassword('');
-              Alert.alert('Sucesso', 'Cofre restaurado a partir do backup criptografado!');
+              try {
+                await replaceVault(importedVault);
+                setImportPassword('');
+                Alert.alert('Sucesso', 'Cofre restaurado a partir do backup criptografado!');
+              } catch (saveErr: any) {
+                Alert.alert('Erro na Restauração', saveErr?.message || 'Não foi possível salvar os dados importados.');
+              }
             },
           },
         ]
@@ -394,25 +406,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                   style={[
                     styles.chip,
                     { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong },
-                    zoneMode === 'address' && { backgroundColor: colors.accentBg, borderColor: colors.accent },
-                  ]}
-                  onPress={() => setZoneMode('address')}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      { color: colors.textSecondary },
-                      zoneMode === 'address' && { color: colors.accent, fontWeight: '700' },
-                    ]}
-                  >
-                    Digitar Endereço
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.chip,
-                    { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong },
                     zoneMode === 'current' && { backgroundColor: colors.accentBg, borderColor: colors.accent },
                   ]}
                   onPress={() => setZoneMode('current')}
@@ -427,16 +420,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                     Local Atual (GPS)
                   </Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.chip,
+                    { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong },
+                    zoneMode === 'address' && { backgroundColor: colors.accentBg, borderColor: colors.accent },
+                  ]}
+                  onPress={() => setZoneMode('address')}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      { color: colors.textSecondary },
+                      zoneMode === 'address' && { color: colors.accent, fontWeight: '700' },
+                    ]}
+                  >
+                    Digitar Endereço
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               {zoneMode === 'address' ? (
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong, color: colors.text }]}
-                  placeholder="Endereço (ex: Av. Paulista, 1000, São Paulo)"
-                  placeholderTextColor={colors.placeholder}
-                  value={zoneAddress}
-                  onChangeText={setZoneAddress}
-                />
+                <>
+                  {state.config.offlineOnly && (
+                    <Text style={[styles.sectionDesc, { color: colors.warning, marginBottom: 8 }]}>
+                      Modo 100% Offline ativo: busca por endereço bloqueada. Use "Local Atual (GPS)" ou desative o modo offline abaixo.
+                    </Text>
+                  )}
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong, color: colors.text }]}
+                    placeholder="Endereço (ex: Av. Paulista, 1000, São Paulo)"
+                    placeholderTextColor={colors.placeholder}
+                    value={zoneAddress}
+                    onChangeText={setZoneAddress}
+                    editable={!state.config.offlineOnly}
+                  />
+                </>
               ) : null}
 
               <TextInput
@@ -492,7 +512,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
                     <Text style={[styles.itemTitle, { color: colors.text }]}>{zone.name}</Text>
                     {zone.address ? (
                       <Text style={[styles.itemSubtitle, { color: colors.textSecondary, marginBottom: 2 }]} numberOfLines={2}>
-                        📍 {zone.address}
+                        Endereço: {zone.address}
                       </Text>
                     ) : null}
                     <Text style={[styles.itemSubtitle, { color: colors.textMuted }]}>

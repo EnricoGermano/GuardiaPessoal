@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVault } from '../../context/VaultContext';
+import { useThemeColors } from '../../theme/useThemeColors';
 import type { NoteItem } from '../../types/vault';
 
 interface NoteFormModalProps {
@@ -29,6 +30,7 @@ export const NoteFormModal: React.FC<NoteFormModalProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0);
+  const colors = useThemeColors();
   const { vault, addNote, updateNote, deleteNote } = useVault();
 
   const [title, setTitle] = useState('');
@@ -120,70 +122,70 @@ export const NoteFormModal: React.FC<NoteFormModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.safeArea}>
-        <View style={[styles.header, { paddingTop: Math.max(topPad, 12) + 6 }]}>
+      <View style={[styles.safeArea, { backgroundColor: colors.bg }]}>
+        <View style={[styles.header, { paddingTop: Math.max(topPad, 12) + 6, backgroundColor: colors.surface, borderColor: colors.border }]}>
           <TouchableOpacity
             onPress={onClose}
             style={styles.headerBtn}
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.cancelText}>Voltar</Text>
+            <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Voltar</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
             {editingItem ? 'Editar Nota' : 'Nova Nota Confidencial'}
           </Text>
           <TouchableOpacity
             onPress={handleSave}
-            style={[styles.headerBtn, styles.saveBtn]}
+            style={[styles.headerBtn, styles.saveBtn, { backgroundColor: colors.accentBg, borderColor: colors.accentBorder }]}
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.saveText}>Salvar</Text>
+            <Text style={[styles.saveText, { color: colors.accent }]}>Salvar</Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.formCard}>
-            <Text style={styles.fieldLabel}>Titulo</Text>
+          <View style={[styles.formCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Titulo</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong, color: colors.text }]}
               placeholder="Ex: Chave de Seguranca / Perguntas"
-              placeholderTextColor="#A8A199"
+              placeholderTextColor={colors.placeholder}
               value={title}
               onChangeText={setTitle}
             />
 
-            <Text style={styles.fieldLabel}>Conteudo Confidencial</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Conteudo Confidencial</Text>
             <TextInput
-              style={[styles.input, styles.textArea]}
+              style={[styles.input, styles.textArea, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong, color: colors.text }]}
               placeholder="Digite o texto sigiloso..."
-              placeholderTextColor="#A8A199"
+              placeholderTextColor={colors.placeholder}
               multiline
               numberOfLines={4}
               value={content}
               onChangeText={setContent}
             />
 
-            <Text style={styles.fieldLabel}>Observacoes Adicionais</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Observacoes Adicionais</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong, color: colors.text }]}
               placeholder="Notas secundarias ou dicas"
-              placeholderTextColor="#A8A199"
+              placeholderTextColor={colors.placeholder}
               value={observations}
               onChangeText={setObservations}
             />
 
             <View style={styles.rowItem}>
-              <Text style={styles.rowLabel}>Marcar como Favorita</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>Marcar como Favorita</Text>
               <Switch
                 value={isFavorite}
                 onValueChange={setIsFavorite}
-                trackColor={{ false: '#E6DFD5', true: '#B5824C' }}
+                trackColor={{ false: colors.borderStrong, true: colors.accent }}
               />
             </View>
 
-            <Text style={styles.fieldLabel}>Auto-destruicao da Nota</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Auto-destruicao da Nota</Text>
             <View style={styles.destructRow}>
               {[
                 { label: 'Nunca', days: 0 },
@@ -196,14 +198,16 @@ export const NoteFormModal: React.FC<NoteFormModalProps> = ({
                   key={opt.days}
                   style={[
                     styles.destructChip,
-                    autoDestructDays === opt.days && styles.destructChipActive,
+                    { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong },
+                    autoDestructDays === opt.days && { backgroundColor: colors.accentBg, borderColor: colors.accent },
                   ]}
                   onPress={() => setAutoDestructDays(opt.days)}
                 >
                   <Text
                     style={[
                       styles.destructText,
-                      autoDestructDays === opt.days && styles.destructTextActive,
+                      { color: colors.textSecondary },
+                      autoDestructDays === opt.days && { color: colors.accent, fontWeight: '700' },
                     ]}
                   >
                     {opt.label}
@@ -214,23 +218,31 @@ export const NoteFormModal: React.FC<NoteFormModalProps> = ({
 
             {vault && vault.passwords.length > 0 && (
               <>
-                <Text style={styles.fieldLabel}>Vincular a uma Senha</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Vincular a uma Senha</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.linkedScroll}>
                   <TouchableOpacity
-                    style={[styles.linkChip, !linkedPasswordId && styles.linkChipActive]}
+                    style={[
+                      styles.linkChip,
+                      { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong },
+                      !linkedPasswordId && { backgroundColor: colors.accentBg, borderColor: colors.accent },
+                    ]}
                     onPress={() => setLinkedPasswordId(undefined)}
                   >
-                    <Text style={[styles.linkChipText, !linkedPasswordId && styles.linkChipTextActive]}>
+                    <Text style={[styles.linkChipText, { color: colors.textSecondary }, !linkedPasswordId && { color: colors.accent, fontWeight: '700' }]}>
                       Nenhuma
                     </Text>
                   </TouchableOpacity>
                   {vault.passwords.map(p => (
                     <TouchableOpacity
                       key={p.id}
-                      style={[styles.linkChip, linkedPasswordId === p.id && styles.linkChipActive]}
+                      style={[
+                        styles.linkChip,
+                        { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong },
+                        linkedPasswordId === p.id && { backgroundColor: colors.accentBg, borderColor: colors.accent },
+                      ]}
                       onPress={() => setLinkedPasswordId(p.id)}
                     >
-                      <Text style={[styles.linkChipText, linkedPasswordId === p.id && styles.linkChipTextActive]}>
+                      <Text style={[styles.linkChipText, { color: colors.textSecondary }, linkedPasswordId === p.id && { color: colors.accent, fontWeight: '700' }]}>
                         {p.service}
                       </Text>
                     </TouchableOpacity>
@@ -240,8 +252,8 @@ export const NoteFormModal: React.FC<NoteFormModalProps> = ({
             )}
 
             {editingItem && (
-              <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-                <Text style={styles.deleteBtnText}>Excluir Nota</Text>
+              <TouchableOpacity style={[styles.deleteBtn, { backgroundColor: colors.dangerBg }]} onPress={handleDelete}>
+                <Text style={[styles.deleteBtnText, { color: colors.danger }]}>Excluir Nota</Text>
               </TouchableOpacity>
             )}
           </View>

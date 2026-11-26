@@ -8,6 +8,7 @@ import { useVault } from '../../context/VaultContext';
 import { generateRandomPassword, generateWordPassword, evaluateStrength } from '../../crypto/generator';
 import { PasswordStrengthBar } from '../../components/PasswordStrengthBar';
 import { NoteFormModal } from '../notes/NoteFormModal';
+import { useThemeColors } from '../../theme/useThemeColors';
 import type { ImportanceLevel, PasswordItem, NoteItem } from '../../types/vault';
 
 interface Props {
@@ -19,6 +20,7 @@ interface Props {
 export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
   const insets = useSafeAreaInsets();
   const topPad = Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0);
+  const colors = useThemeColors();
   const { vault, addPassword, updatePassword, addNote, updateNote } = useVault();
 
   const [service, setService] = useState(editingItem?.service || '');
@@ -218,7 +220,7 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
 
   return (
     <SafeAreaView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.bg }]}
       edges={['bottom', 'left', 'right']}
       onStartShouldSetResponderCapture={() => {
         notifyActivity();
@@ -229,7 +231,7 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
       >
-        <View style={[styles.header, { paddingTop: Math.max(topPad, 12) + 6 }]}>
+        <View style={[styles.header, { paddingTop: Math.max(topPad, 12) + 6, backgroundColor: colors.surface, borderColor: colors.border }]}>
           <TouchableOpacity
             style={styles.headerBtn}
             onPress={handleBack}
@@ -237,19 +239,19 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.cancelText}>Voltar</Text>
+            <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Voltar</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
             {editingItem ? 'Editar Senha' : 'Nova Credencial'}
           </Text>
           <TouchableOpacity
-            style={[styles.headerBtn, styles.saveBtn]}
+            style={[styles.headerBtn, styles.saveBtn, { backgroundColor: colors.accentBg, borderColor: colors.accentBorder }]}
             onPress={handleSave}
             disabled={saving}
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
             activeOpacity={0.7}
           >
-            <Text style={[styles.saveText, saving && styles.saveTextDisabled]}>
+            <Text style={[styles.saveText, { color: colors.accent }, saving && styles.saveTextDisabled]}>
               {saving ? 'Salvando...' : 'Salvar'}
             </Text>
           </TouchableOpacity>
@@ -261,47 +263,47 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
           onScrollBeginDrag={notifyActivity}
         >
 
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.borderStrong }]}>
             <View style={styles.field}>
-              <Text style={styles.label}>Servico</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Servico</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surfaceAlt, color: colors.text, borderColor: colors.borderStrong }]}
                 value={service}
                 onChangeText={t => { notifyActivity(); setService(t); }}
                 placeholder="Ex: Google"
-                placeholderTextColor="#A8A199"
+                placeholderTextColor={colors.placeholder}
               />
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Usuario</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Usuario</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surfaceAlt, color: colors.text, borderColor: colors.borderStrong }]}
                 value={username}
                 onChangeText={t => { notifyActivity(); setUsername(t); }}
                 placeholder="exemplo@gmail.com"
-                placeholderTextColor="#A8A199"
+                placeholderTextColor={colors.placeholder}
                 autoCapitalize="none"
               />
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Senha</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Senha</Text>
               <View style={styles.passwordRow}>
                 <TextInput
-                  style={[styles.input, styles.flex]}
+                  style={[styles.input, styles.flex, { backgroundColor: colors.surfaceAlt, color: colors.text, borderColor: colors.borderStrong }]}
                   value={password}
                   onChangeText={t => { notifyActivity(); setPassword(t); }}
                   placeholder="Senha"
-                  placeholderTextColor="#A8A199"
+                  placeholderTextColor={colors.placeholder}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                 />
                 <TouchableOpacity
-                  style={styles.eyeButton}
+                  style={[styles.eyeButton, { backgroundColor: colors.accentBg, borderColor: colors.accentBorder }]}
                   onPress={() => { notifyActivity(); setShowPassword(v => !v); }}
                 >
-                  <Text style={styles.eyeText}>{showPassword ? 'Ocultar' : 'Ver'}</Text>
+                  <Text style={[styles.eyeText, { color: colors.accent }]}>{showPassword ? 'Ocultar' : 'Ver'}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -313,68 +315,69 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
             )}
 
             <View style={styles.genRow}>
-              <TouchableOpacity style={styles.genButton} onPress={handleGenerate}>
-                <Text style={styles.genText}>Gerar Aleatória</Text>
+              <TouchableOpacity style={[styles.genButton, { backgroundColor: colors.accentBg, borderColor: colors.accentBorder }]} onPress={handleGenerate}>
+                <Text style={[styles.genText, { color: colors.accent }]}>Gerar Aleatória</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.genButton} onPress={handleGenerateWords}>
-                <Text style={styles.genText}>Gerar Palavras</Text>
+              <TouchableOpacity style={[styles.genButton, { backgroundColor: colors.accentBg, borderColor: colors.accentBorder }]} onPress={handleGenerateWords}>
+                <Text style={[styles.genText, { color: colors.accent }]}>Gerar Palavras</Text>
               </TouchableOpacity>
             </View>
 
-            <View style={styles.genOptions}>
-              <Text style={styles.smallLabel}>Tamanho da senha aleatoria: {genLength}</Text>
+            <View style={[styles.genOptions, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong }]}>
+              <Text style={[styles.smallLabel, { color: colors.textSecondary }]}>Tamanho da senha aleatoria: {genLength}</Text>
               <View style={styles.lengthRow}>
                 <TouchableOpacity
                   onPress={() => { notifyActivity(); setGenLength(l => Math.max(8, l - 1)); }}
                 >
-                  <Text style={styles.lengthBtn}>-</Text>
+                  <Text style={[styles.lengthBtn, { color: colors.accent }]}>-</Text>
                 </TouchableOpacity>
-                <View style={styles.lengthBar}>
-                  <View style={[styles.lengthFill, { width: `${((genLength - 8) / 24) * 100}%` }]} />
+                <View style={[styles.lengthBar, { backgroundColor: colors.borderStrong }]}>
+                  <View style={[styles.lengthFill, { backgroundColor: colors.accent, width: `${((genLength - 8) / 24) * 100}%` }]} />
                 </View>
                 <TouchableOpacity
                   onPress={() => { notifyActivity(); setGenLength(l => Math.min(32, l + 1)); }}
                 >
-                  <Text style={styles.lengthBtn}>+</Text>
+                  <Text style={[styles.lengthBtn, { color: colors.accent }]}>+</Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.switchRow}>
-                <Text style={styles.smallLabel}>Incluir simbolos</Text>
+                <Text style={[styles.smallLabel, { color: colors.textSecondary }]}>Incluir simbolos</Text>
                 <Switch
                   value={genSymbols}
                   onValueChange={v => { notifyActivity(); setGenSymbols(v); }}
-                  trackColor={{ false: '#E6DFD5', true: '#B5824C' }}
+                  trackColor={{ false: colors.borderStrong, true: colors.accent }}
                 />
               </View>
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>URL (opcional)</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>URL (opcional)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surfaceAlt, color: colors.text, borderColor: colors.borderStrong }]}
                 value={url}
                 onChangeText={t => { notifyActivity(); setUrl(t); }}
                 placeholder="https://exemplo.com"
-                placeholderTextColor="#A8A199"
+                placeholderTextColor={colors.placeholder}
                 autoCapitalize="none"
                 keyboardType="url"
               />
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Categoria</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Categoria</Text>
               <View style={styles.categoryRow}>
                 {vault?.categories.map(cat => (
                   <TouchableOpacity
                     key={cat.id}
                     style={[
                       styles.catChip,
-                      category === cat.id && styles.catChipActive,
+                      { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong },
+                      category === cat.id && { backgroundColor: colors.accentBg, borderColor: colors.accent },
                     ]}
                     onPress={() => { notifyActivity(); setCategory(cat.id); }}
                   >
-                    <Text style={[styles.catText, category === cat.id && styles.catTextActive]}>
+                    <Text style={[styles.catText, { color: colors.textSecondary }, category === cat.id && { color: colors.accent, fontWeight: '700' }]}>
                       {cat.name}
                     </Text>
                   </TouchableOpacity>
@@ -383,29 +386,30 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Tags (separadas por virgula)</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Tags (separadas por virgula)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surfaceAlt, color: colors.text, borderColor: colors.borderStrong }]}
                 value={tagsText}
                 onChangeText={t => { notifyActivity(); setTagsText(t); }}
                 placeholder="ex: pessoal, banco, email"
-                placeholderTextColor="#A8A199"
+                placeholderTextColor={colors.placeholder}
               />
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Nivel de Importancia</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Nivel de Importancia</Text>
               <View style={styles.categoryRow}>
                 {(['baixa', 'media', 'alta'] as ImportanceLevel[]).map(level => (
                   <TouchableOpacity
                     key={level}
                     style={[
                       styles.catChip,
-                      importance === level && styles.catChipActive,
+                      { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong },
+                      importance === level && { backgroundColor: colors.accentBg, borderColor: colors.accent },
                     ]}
                     onPress={() => { notifyActivity(); setImportance(level); }}
                   >
-                    <Text style={[styles.catText, importance === level && styles.catTextActive]}>
+                    <Text style={[styles.catText, { color: colors.textSecondary }, importance === level && { color: colors.accent, fontWeight: '700' }]}>
                       {level.charAt(0).toUpperCase() + level.slice(1)}
                     </Text>
                   </TouchableOpacity>
@@ -414,37 +418,37 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Dica (opcional)</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Dica (opcional)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surfaceAlt, color: colors.text, borderColor: colors.borderStrong }]}
                 value={hint}
                 onChangeText={t => { notifyActivity(); setHint(t); }}
                 placeholder="Uma pista para lembrar da senha"
-                placeholderTextColor="#A8A199"
+                placeholderTextColor={colors.placeholder}
               />
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Aviso (opcional)</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Aviso (opcional)</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.surfaceAlt, color: colors.text, borderColor: colors.borderStrong }]}
                 value={warning}
                 onChangeText={t => { notifyActivity(); setWarning(t); }}
                 placeholder="Lembrete exibido ao ver esta senha"
-                placeholderTextColor="#A8A199"
+                placeholderTextColor={colors.placeholder}
               />
             </View>
           </View>
 
           {/* US14: Seção de Notas Confidenciais Vinculadas */}
-          <View style={[styles.card, { marginTop: 16 }]}>
-            <Text style={styles.sectionHeaderTitle}>Notas Confidenciais Vinculadas</Text>
+          <View style={[styles.card, { marginTop: 16, backgroundColor: colors.surface, borderColor: colors.borderStrong }]}>
+            <Text style={[styles.sectionHeaderTitle, { color: colors.text }]}>Notas Confidenciais Vinculadas</Text>
 
             {editingItem && linkedNotes.length > 0 && (
-              <View style={styles.linkedSection}>
-                <Text style={styles.sublabel}>Notas já vinculadas a esta credencial:</Text>
+              <View style={[styles.linkedSection, { borderColor: colors.border }]}>
+                <Text style={[styles.sublabel, { color: colors.textSecondary }]}>Notas já vinculadas a esta credencial:</Text>
                 {linkedNotes.map(note => (
-                  <View key={note.id} style={styles.linkedNoteCard}>
+                  <View key={note.id} style={[styles.linkedNoteCard, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong }]}>
                     <TouchableOpacity
                       style={styles.linkedNoteContent}
                       onPress={() => {
@@ -455,18 +459,18 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
                       activeOpacity={0.7}
                     >
                       <View style={styles.linkedNoteHeader}>
-                        <Text style={styles.linkedNoteTitle} numberOfLines={1}>{note.title}</Text>
+                        <Text style={[styles.linkedNoteTitle, { color: colors.text }]} numberOfLines={1}>{note.title}</Text>
                         {note.isFavorite && (
-                          <View style={styles.miniBadgeFav}>
-                            <Text style={styles.miniBadgeFavText}>★ Favorita</Text>
+                          <View style={[styles.miniBadgeFav, { backgroundColor: colors.accentBg, borderColor: colors.accentBorder }]}>
+                            <Text style={[styles.miniBadgeFavText, { color: colors.accent }]}>Favorita</Text>
                           </View>
                         )}
                       </View>
-                      <Text style={styles.linkedNoteSnippet} numberOfLines={1}>
+                      <Text style={[styles.linkedNoteSnippet, { color: colors.textSecondary }]} numberOfLines={1}>
                         {note.content}
                       </Text>
                       {note.observations ? (
-                        <Text style={styles.linkedNoteObs} numberOfLines={1}>
+                        <Text style={[styles.linkedNoteObs, { color: colors.accent }]} numberOfLines={1}>
                           Obs: {note.observations}
                         </Text>
                       ) : null}
@@ -474,20 +478,20 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
 
                     <View style={styles.linkedNoteActions}>
                       <TouchableOpacity
-                        style={styles.openNoteBtn}
+                        style={[styles.openNoteBtn, { backgroundColor: colors.surface, borderColor: colors.borderStrong }]}
                         onPress={() => {
                           notifyActivity();
                           setSelectedNoteModalItem(note);
                           setNoteModalVisible(true);
                         }}
                       >
-                        <Text style={styles.openNoteText}>Editar</Text>
+                        <Text style={[styles.openNoteText, { color: colors.text }]}>Editar</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={styles.unlinkBtn}
+                        style={[styles.unlinkBtn, { backgroundColor: colors.dangerBg, borderColor: colors.danger }]}
                         onPress={() => handleUnlinkNote(note)}
                       >
-                        <Text style={styles.unlinkText}>Desvincular</Text>
+                        <Text style={[styles.unlinkText, { color: colors.danger }]}>Desvincular</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -496,29 +500,29 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
             )}
 
             <View style={styles.newNoteSection}>
-              <Text style={styles.sublabel}>
+              <Text style={[styles.sublabel, { color: colors.textSecondary }]}>
                 {editingItem ? 'Criar nova nota vinculada:' : 'Adicionar nota sigilosa vinculada:'}
               </Text>
 
               <View style={styles.field}>
-                <Text style={styles.label}>Título da Nota (opcional)</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Título da Nota (opcional)</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: colors.surfaceAlt, color: colors.text, borderColor: colors.borderStrong }]}
                   value={quickNoteTitle}
                   onChangeText={t => { notifyActivity(); setQuickNoteTitle(t); }}
                   placeholder={`Nota - ${service.trim() || 'Credencial'}`}
-                  placeholderTextColor="#A8A199"
+                  placeholderTextColor={colors.placeholder}
                 />
               </View>
 
               <View style={styles.field}>
-                <Text style={styles.label}>Conteúdo Confidencial da Nota</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Conteúdo Confidencial da Nota</Text>
                 <TextInput
-                  style={[styles.input, styles.noteTextArea]}
+                  style={[styles.input, styles.noteTextArea, { backgroundColor: colors.surfaceAlt, color: colors.text, borderColor: colors.borderStrong }]}
                   value={quickNoteContent}
                   onChangeText={t => { notifyActivity(); setQuickNoteContent(t); }}
                   placeholder="Ex: Perguntas de segurança, código PUK, chave de recuperação..."
-                  placeholderTextColor="#A8A199"
+                  placeholderTextColor={colors.placeholder}
                   multiline
                   numberOfLines={3}
                 />
@@ -532,23 +536,23 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={styles.toggleAdvancedText}>
-                  {showNoteAdvanced ? '▲ Ocultar opções da nota' : '▼ Mais opções da nota (auto-destruição e favorita)'}
+                <Text style={[styles.toggleAdvancedText, { color: colors.accent }]}>
+                  {showNoteAdvanced ? 'Ocultar opções da nota' : 'Mais opções da nota (auto-destruição e favorita)'}
                 </Text>
               </TouchableOpacity>
 
               {showNoteAdvanced && (
-                <View style={styles.noteAdvancedBox}>
+                <View style={[styles.noteAdvancedBox, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong }]}>
                   <View style={styles.switchRow}>
-                    <Text style={styles.smallLabel}>Marcar como Favorita</Text>
+                    <Text style={[styles.smallLabel, { color: colors.textSecondary }]}>Marcar como Favorita</Text>
                     <Switch
                       value={quickNoteFavorite}
                       onValueChange={v => { notifyActivity(); setQuickNoteFavorite(v); }}
-                      trackColor={{ false: '#E6DFD5', true: '#B5824C' }}
+                      trackColor={{ false: colors.borderStrong, true: colors.accent }}
                     />
                   </View>
 
-                  <Text style={[styles.label, { marginTop: 12 }]}>Auto-destruição</Text>
+                  <Text style={[styles.label, { marginTop: 12, color: colors.textSecondary }]}>Auto-destruição</Text>
                   <View style={styles.destructRow}>
                     {[
                       { label: 'Nunca', days: 0 },
@@ -561,14 +565,16 @@ export function PasswordFormScreen({ onDone, editingItem, onActivity }: Props) {
                         key={opt.days}
                         style={[
                           styles.destructChip,
-                          quickNoteDestructDays === opt.days && styles.destructChipActive,
+                          { backgroundColor: colors.surface, borderColor: colors.borderStrong },
+                          quickNoteDestructDays === opt.days && { backgroundColor: colors.accentBg, borderColor: colors.accent },
                         ]}
                         onPress={() => { notifyActivity(); setQuickNoteDestructDays(opt.days); }}
                       >
                         <Text
                           style={[
                             styles.destructText,
-                            quickNoteDestructDays === opt.days && styles.destructTextActive,
+                            { color: colors.textSecondary },
+                            quickNoteDestructDays === opt.days && { color: colors.accent, fontWeight: '700' },
                           ]}
                         >
                           {opt.label}

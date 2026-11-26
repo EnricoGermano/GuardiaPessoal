@@ -25,7 +25,13 @@
     "plugins": [
       "expo-secure-store",
       "expo-sharing",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Permitir que o Guardião Pessoal acesse sua localização para validar Zonas Seguras (GPS)."
+        }
+      ]
     ],
     "extra": {
       "eas": {

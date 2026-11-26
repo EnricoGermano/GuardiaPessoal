@@ -7,10 +7,10 @@ import { useAuth, MAX_FAILED_ATTEMPTS } from '../../context/AuthContext';
 import { authenticateWithBiometrics, isBiometricAvailable } from '../../hooks/useBiometrics';
 import { FaceAuthModal } from '../../components/FaceAuthModal';
 import { useThemeColors } from '../../theme/useThemeColors';
-import { checkSafeZoneAccess, getConfiguredSafeZones } from '../../utils/locationGuard';
+import { getConfiguredSafeZones } from '../../utils/locationGuard';
 
 export function LockScreen() {
-  const { state, unlockWithPin, unlockWithBiometrics, unlockWithFace } = useAuth();
+  const { state, unlockWithPin, unlockWithBiometrics, unlockWithFace, getLastLocationBlockReason } = useAuth();
   const colors = useThemeColors();
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
@@ -43,19 +43,16 @@ export function LockScreen() {
     if (res.success) {
       const ok = await unlockWithBiometrics();
       if (!ok) {
-        if (state.config.locationLockEnabled && safeZonesCount > 0) {
-          const loc = await checkSafeZoneAccess(state.config);
-          if (!loc.allowed) {
-            const msg = loc.reason || 'Acesso permitido apenas dentro de uma zona segura.';
-            setLocationMessage(msg);
-            Alert.alert('Acesso Bloqueado (GPS)', msg);
-            return;
-          }
+        const locReason = getLastLocationBlockReason();
+        if (locReason) {
+          setLocationMessage(locReason);
+          Alert.alert('Acesso Bloqueado (GPS)', locReason);
+          return;
         }
         Alert.alert('PIN Necessário', 'Digite o PIN mestre para desbloquear.');
       }
     }
-  }, [isLocked, unlockWithBiometrics, state.config, safeZonesCount]);
+  }, [isLocked, unlockWithBiometrics, getLastLocationBlockReason]);
 
   useEffect(() => {
     (async () => {
@@ -105,8 +102,7 @@ export function LockScreen() {
         return;
       case 'outside_safe_zone': {
         Vibration.vibrate(200);
-        const loc = await checkSafeZoneAccess(state.config);
-        const msg = loc.reason || 'Você está fora das zonas seguras cadastradas.';
+        const msg = getLastLocationBlockReason() || 'Você está fora das zonas seguras cadastradas.';
         setLocationMessage(msg);
         Alert.alert('Acesso Bloqueado (GPS)', msg);
         return;
@@ -237,14 +233,11 @@ export function LockScreen() {
             setFaceModalVisible(false);
             const ok = await unlockWithFace();
             if (!ok) {
-              if (state.config.locationLockEnabled && safeZonesCount > 0) {
-                const loc = await checkSafeZoneAccess(state.config);
-                if (!loc.allowed) {
-                  const msg = loc.reason || 'Acesso permitido apenas dentro de uma zona segura.';
-                  setLocationMessage(msg);
-                  Alert.alert('Acesso Bloqueado (GPS)', msg);
-                  return;
-                }
+              const locReason = getLastLocationBlockReason();
+              if (locReason) {
+                setLocationMessage(locReason);
+                Alert.alert('Acesso Bloqueado (GPS)', locReason);
+                return;
               }
               Alert.alert('PIN Necessário', 'Digite o PIN mestre para desbloquear.');
             }

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
 import type { AuthState, SecurityConfig, AccessLog } from '../types/auth';
 import {
   hashPin, generateRandomHex, clearKeyCache,
@@ -116,6 +116,7 @@ interface AuthContextType {
   changeMasterPin: (oldPin: string, newPin: string) => Promise<ChangePinResult>;
   changeEmergencyPin: (masterPin: string, newEmergencyPin: string) => Promise<ChangeEmergencyPinResult>;
   updateConfig: (config: Partial<SecurityConfig>) => Promise<void>;
+  getLastLocationBlockReason: () => string | null;
   lock: () => void;
   wipeAll: () => Promise<void>;
 }
@@ -144,6 +145,9 @@ async function logAccess(success: boolean, method: AccessLog['method'], detail?:
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const lastLocationBlockReasonRef = useRef<string | null>(null);
+
+  const getLastLocationBlockReason = useCallback(() => lastLocationBlockReasonRef.current, []);
 
   useEffect(() => {
     (async () => {
@@ -206,9 +210,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const effectiveConfig: SecurityConfig = { ...DEFAULT_CONFIG, ...savedConfig, isConfigured: true };
       const locCheck = await checkSafeZoneAccess(effectiveConfig);
       if (!locCheck.allowed) {
-        await logAccess(false, 'pin', locCheck.reason || 'Fora da zona segura (GPS)');
+        const reason = locCheck.reason || 'Fora da zona segura (GPS)';
+        lastLocationBlockReasonRef.current = reason;
+        await logAccess(false, 'pin', reason);
         return 'outside_safe_zone';
       }
+      lastLocationBlockReasonRef.current = null;
       await setAttemptState({ failedAttempts: 0, lockoutUntil: 0 });
       await setSessionSecret(pin);
       await setBioPin(pin);
@@ -232,6 +239,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [wipeAll]);
 
   const unlockWithBiometrics = useCallback(async (): Promise<boolean> => {
+    lastLocationBlockReasonRef.current = null;
     const attempts = await getAttemptState();
     if (Date.now() < attempts.lockoutUntil) return false;
 
@@ -242,7 +250,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const effectiveConfig: SecurityConfig = { ...DEFAULT_CONFIG, ...savedConfig, isConfigured: true };
     const locCheck = await checkSafeZoneAccess(effectiveConfig);
     if (!locCheck.allowed) {
-      await logAccess(false, 'biometric', locCheck.reason || 'Fora da zona segura (GPS)');
+      const reason = locCheck.reason || 'Fora da zona segura (GPS)';
+      lastLocationBlockReasonRef.current = reason;
+      await logAccess(false, 'biometric', reason);
       return false;
     }
 
@@ -254,6 +264,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const unlockWithFace = useCallback(async (): Promise<boolean> => {
+    lastLocationBlockReasonRef.current = null;
     const attempts = await getAttemptState();
     if (Date.now() < attempts.lockoutUntil) return false;
 
@@ -264,7 +275,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const effectiveConfig: SecurityConfig = { ...DEFAULT_CONFIG, ...savedConfig, isConfigured: true };
     const locCheck = await checkSafeZoneAccess(effectiveConfig);
     if (!locCheck.allowed) {
-      await logAccess(false, 'face', locCheck.reason || 'Fora da zona segura (GPS)');
+      const reason = locCheck.reason || 'Fora da zona segura (GPS)';
+      lastLocationBlockReasonRef.current = reason;
+      await logAccess(false, 'face', reason);
       return false;
     }
 
@@ -345,6 +358,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       changeMasterPin,
       changeEmergencyPin,
       updateConfig,
+      getLastLocationBlockReason,
       lock,
       wipeAll,
     }}>

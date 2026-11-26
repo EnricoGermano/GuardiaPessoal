@@ -20,11 +20,12 @@ Este roteiro cobre todas as funcionalidades entregues na **Sprint 3 (US18 a US29
 
 ### 1. US18 — Zonas Seguras (GPS)
 1. Toque em **Ajustes** no cabeçalho.
-2. Na seção **Zonas Seguras (GPS)**:
+2. Na seção **Zonas Seguras (GPS)** (aba padrão **Local Atual (GPS)**):
    - Digite um nome (ex: `Casa`).
    - Selecione o raio (ex: `300m`).
    - Toque em **Adicionar Local Atual (GPS)** e conceda a permissão de localização ao app.
    - **Esperado**: A zona `"Casa"` aparece listada com latitude/longitude e o interruptor de Zonas Seguras fica ativado.
+   - *(Opcional — Busca por Endereço)*: Na aba **Digitar Endereço**, com **Modo 100% Offline** ativo, o campo fica bloqueado com aviso; desativando temporariamente o Modo 100% Offline em *Privacidade, Rede e Acessibilidade*, é possível cadastrar uma zona digitando o endereço.
 3. Volte e toque em **Trancar** no cabeçalho.
 4. Na tela de bloqueio, tente desbloquear com o PIN Mestre (`2580`).
    - **Esperado**: Como o emulador ainda está na mesma coordenada GPS, o desbloqueio **funciona**.
@@ -124,7 +125,7 @@ Este roteiro cobre todas as funcionalidades entregues na **Sprint 3 (US18 a US29
 ### 10. US27 — Modo Alto Contraste
 1. Vá em **Ajustes** → **Privacidade, Rede e Acessibilidade**.
 2. Ative **Modo Alto Contraste**.
-   - **Esperado**: Todas as telas (Ajustes, Lista de Senhas/Notas, Painel de Saúde, Histórico de Acessos e Tela de Bloqueio) passam a usar fundo preto puro (`#000000`), texto branco e destaques em amarelo ouro (`#FFD700`) com bordas reforçadas.
+   - **Esperado**: Todas as telas (Ajustes, Lista de Senhas/Notas, Formulário de Nova Senha, Modal de Nova Nota, Painel de Saúde, Histórico de Acessos, Tela de Bloqueio e Setup) passam a usar fundo preto puro (`#000000`), texto branco e destaques em amarelo ouro (`#FFD700`) com bordas reforçadas.
 
 ---
 

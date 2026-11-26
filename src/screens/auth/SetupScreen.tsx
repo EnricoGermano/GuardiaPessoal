@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { PasswordStrengthBar, calculatePinStrength } from '../../components/PasswordStrengthBar';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 type Step = 'pin' | 'confirm' | 'emergency';
 
@@ -13,6 +14,7 @@ const STEPS: Step[] = ['pin', 'confirm', 'emergency'];
 
 export function SetupScreen() {
   const { setupVault } = useAuth();
+  const colors = useThemeColors();
 
   const [step, setStep] = useState<Step>('pin');
   const [pin, setPin] = useState('');
@@ -73,17 +75,17 @@ export function SetupScreen() {
       case 'pin':
         return (
           <>
-            <Text style={styles.title}>Criar Senha Mestra</Text>
-            <Text style={styles.subtitle}>Escolha um PIN de 4 digitos</Text>
+            <Text style={[styles.title, { color: colors.text }]}>Criar Senha Mestra</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Escolha um PIN de 4 digitos</Text>
             <TextInput
-              style={styles.pinInput}
+              style={[styles.pinInput, { backgroundColor: colors.surfaceAlt, color: colors.text, borderColor: colors.borderStrong }]}
               value={pin}
               onChangeText={t => handlePinInput(t, setPin)}
               keyboardType="number-pad"
               secureTextEntry
               maxLength={4}
               placeholder="••••"
-              placeholderTextColor="#A8A199"
+              placeholderTextColor={colors.placeholder}
               autoFocus
             />
             {pin.length > 0 && <PasswordStrengthBar score={calculatePinStrength(pin)} />}
@@ -92,17 +94,17 @@ export function SetupScreen() {
       case 'confirm':
         return (
           <>
-            <Text style={styles.title}>Confirmar PIN</Text>
-            <Text style={styles.subtitle}>Digite o PIN novamente</Text>
+            <Text style={[styles.title, { color: colors.text }]}>Confirmar PIN</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Digite o PIN novamente</Text>
             <TextInput
-              style={styles.pinInput}
+              style={[styles.pinInput, { backgroundColor: colors.surfaceAlt, color: colors.text, borderColor: colors.borderStrong }]}
               value={confirmPin}
               onChangeText={t => handlePinInput(t, setConfirmPin)}
               keyboardType="number-pad"
               secureTextEntry
               maxLength={4}
               placeholder="••••"
-              placeholderTextColor="#A8A199"
+              placeholderTextColor={colors.placeholder}
               autoFocus
             />
           </>
@@ -110,20 +112,20 @@ export function SetupScreen() {
       case 'emergency':
         return (
           <>
-            <Text style={styles.title}>PIN de Emergencia</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.title, { color: colors.text }]}>PIN de Emergencia</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               Se voce digitar esse PIN, todos os dados serao apagados imediatamente.
               Use em situacoes de coacao.
             </Text>
             <TextInput
-              style={styles.pinInput}
+              style={[styles.pinInput, { backgroundColor: colors.surfaceAlt, color: colors.text, borderColor: colors.borderStrong }]}
               value={emergencyPin}
               onChangeText={t => handlePinInput(t, setEmergencyPin)}
               keyboardType="number-pad"
               secureTextEntry
               maxLength={4}
               placeholder="••••"
-              placeholderTextColor="#A8A199"
+              placeholderTextColor={colors.placeholder}
               autoFocus
             />
             {emergencyPin.length > 0 && <PasswordStrengthBar score={calculatePinStrength(emergencyPin)} />}
@@ -134,29 +136,29 @@ export function SetupScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
-            <Text style={styles.appName}>Guardiao Pessoal</Text>
-            <Text style={styles.stepIndicator}>
+            <Text style={[styles.appName, { color: colors.text }]}>Guardiao Pessoal</Text>
+            <Text style={[styles.stepIndicator, { color: colors.accent }]}>
               Passo {STEPS.indexOf(step) + 1} de {STEPS.length}
             </Text>
           </View>
 
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.borderStrong }]}>
             {renderStep()}
           </View>
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            style={[styles.button, { backgroundColor: colors.accent }, loading && styles.buttonDisabled]}
             onPress={nextStep}
             disabled={loading}
           >
-            <Text style={styles.buttonText}>
+            <Text style={[styles.buttonText, { color: colors.accentText }]}>
               {loading ? 'Configurando...' : step === 'emergency' ? 'Finalizar' : 'Continuar'}
             </Text>
           </TouchableOpacity>
@@ -169,7 +171,7 @@ export function SetupScreen() {
                 if (idx > 0) setStep(STEPS[idx - 1]);
               }}
             >
-              <Text style={styles.backText}>Voltar</Text>
+              <Text style={[styles.backText, { color: colors.textSecondary }]}>Voltar</Text>
             </TouchableOpacity>
           )}
         </ScrollView>

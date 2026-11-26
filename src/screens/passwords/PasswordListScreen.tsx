@@ -178,9 +178,9 @@ export function HomeScreen() {
   };
 
   const importanceBadge = (level: string) => {
-    if (level === 'alta') return { bg: '#FBEAE5', text: '#D9534F', label: 'Alta' };
-    if (level === 'media') return { bg: '#FFF9EE', text: '#D9822B', label: 'Média' };
-    return { bg: '#EAF2EC', text: '#4A7C59', label: 'Baixa' };
+    if (level === 'alta') return { bg: colors.dangerBg, text: colors.danger, label: 'Alta' };
+    if (level === 'media') return { bg: colors.accentBg, text: colors.warning, label: 'Média' };
+    return { bg: colors.successBg, text: colors.success, label: 'Baixa' };
   };
 
   const renderPasswordItem = ({ item }: { item: PasswordItem }) => {
@@ -206,30 +206,30 @@ export function HomeScreen() {
         {item.tags && item.tags.length > 0 && (
           <View style={styles.tagsRow}>
             {item.tags.map((tag, idx) => (
-              <View key={`${item.id}-tag-${idx}`} style={styles.tagPill}>
-                <Text style={styles.tagText}>#{tag}</Text>
+              <View key={`${item.id}-tag-${idx}`} style={[styles.tagPill, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong }]}>
+                <Text style={[styles.tagText, { color: colors.textSecondary }]}>#{tag}</Text>
               </View>
             ))}
           </View>
         )}
 
         {linkedNotes.length > 0 && (
-          <View style={styles.linkedNotesContainer}>
-            <Text style={styles.linkedNotesLabel}>
+          <View style={[styles.linkedNotesContainer, { backgroundColor: colors.successBg, borderColor: colors.success }]}>
+            <Text style={[styles.linkedNotesLabel, { color: colors.success }]}>
               {linkedNotes.length === 1 ? 'Nota vinculada:' : 'Notas vinculadas:'}
             </Text>
             <View style={styles.linkedNotesRow}>
               {linkedNotes.map(note => (
                 <TouchableOpacity
                   key={note.id}
-                  style={styles.linkedNoteBadge}
+                  style={[styles.linkedNoteBadge, { backgroundColor: colors.surface, borderColor: colors.success }]}
                   onPress={() => {
                     resetTimer();
                     setEditingNote(note);
                     setNoteModalVisible(true);
                   }}
                 >
-                  <Text style={styles.linkedNoteBadgeText} numberOfLines={1}>
+                  <Text style={[styles.linkedNoteBadgeText, { color: colors.success }]} numberOfLines={1}>
                     {note.title}
                   </Text>
                 </TouchableOpacity>
@@ -251,41 +251,41 @@ export function HomeScreen() {
         </View>
 
         {item.warning && (
-          <Text style={styles.warningText}>{item.warning}</Text>
+          <Text style={[styles.warningText, { color: colors.warning }]}>{item.warning}</Text>
         )}
 
         <View style={styles.itemActions}>
           <TouchableOpacity
-            style={styles.actionBtn}
+            style={[styles.actionBtn, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong }]}
             onPress={() => handleCopy(item.username, 'Usuário')}
           >
-            <Text style={styles.actionText}>Copiar usuário</Text>
+            <Text style={[styles.actionText, { color: colors.text }]}>Copiar usuário</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionBtn}
+            style={[styles.actionBtn, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong }]}
             onPress={() => handleCopy(item.password, 'Senha')}
           >
-            <Text style={styles.actionText}>Copiar senha</Text>
+            <Text style={[styles.actionText, { color: colors.text }]}>Copiar senha</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionBtn}
+            style={[styles.actionBtn, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong }]}
             onPress={() => { setRevealedId(null); setEditingItem(item); setTab('add'); }}
           >
-            <Text style={styles.actionText}>Editar</Text>
+            <Text style={[styles.actionText, { color: colors.text }]}>Editar</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionBtn, styles.deleteBtn]}
+            style={[styles.actionBtn, styles.deleteBtn, { backgroundColor: colors.dangerBg, borderColor: colors.danger }]}
             onPress={() => handleDeletePassword(item)}
           >
-            <Text style={styles.deleteText}>Excluir</Text>
+            <Text style={[styles.deleteText, { color: colors.danger }]}>Excluir</Text>
           </TouchableOpacity>
         </View>
 
         {item.hint && (
-          <Text style={styles.hintText}>Dica: {item.hint}</Text>
+          <Text style={[styles.hintText, { color: colors.textMuted }]}>Dica: {item.hint}</Text>
         )}
       </View>
     );
@@ -313,26 +313,26 @@ export function HomeScreen() {
           <Text style={[styles.itemService, { color: colors.text }]} numberOfLines={1}>{item.title}</Text>
           <View style={styles.badgesRow}>
             {item.isFavorite && (
-              <View style={[styles.badge, { backgroundColor: '#FFF9EE' }]}>
-                <Text style={[styles.badgeText, { color: '#996515' }]}>Favorita</Text>
+              <View style={[styles.badge, { backgroundColor: colors.accentBg }]}>
+                <Text style={[styles.badgeText, { color: colors.accent }]}>Favorita</Text>
               </View>
             )}
             {linkedService && (
-              <View style={[styles.badge, { backgroundColor: '#EAF2EC', marginLeft: 4 }]}>
-                <Text style={[styles.badgeText, { color: '#4A7C59' }]}>{linkedService}</Text>
+              <View style={[styles.badge, { backgroundColor: colors.successBg, marginLeft: 4 }]}>
+                <Text style={[styles.badgeText, { color: colors.success }]}>{linkedService}</Text>
               </View>
             )}
           </View>
         </View>
 
-        <Text style={styles.itemUser} numberOfLines={3}>{item.content}</Text>
+        <Text style={[styles.itemUser, { color: colors.textSecondary }]} numberOfLines={3}>{item.content}</Text>
 
         {item.observations ? (
-          <Text style={styles.hintText}>Obs: {item.observations}</Text>
+          <Text style={[styles.hintText, { color: colors.textMuted }]}>Obs: {item.observations}</Text>
         ) : null}
 
         {item.expiresAt ? (
-          <Text style={styles.warningText}>
+          <Text style={[styles.warningText, { color: colors.warning }]}>
             {item.autoDestructDays === -10 || item.expiresAt - nowTs < 60000
               ? `Auto-destruição em: ${Math.max(0, Math.ceil((item.expiresAt - nowTs) / 1000))}s`
               : `Auto-destruição: ${item.autoDestructDays} dia(s)`}
@@ -341,20 +341,20 @@ export function HomeScreen() {
 
         <View style={[styles.itemActions, { marginTop: 10 }]}>
           <TouchableOpacity
-            style={styles.actionBtn}
+            style={[styles.actionBtn, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong }]}
             onPress={() => {
               setEditingNote(item);
               setNoteModalVisible(true);
             }}
           >
-            <Text style={styles.actionText}>Editar</Text>
+            <Text style={[styles.actionText, { color: colors.text }]}>Editar</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.actionBtn, styles.deleteBtn]}
+            style={[styles.actionBtn, styles.deleteBtn, { backgroundColor: colors.dangerBg, borderColor: colors.danger }]}
             onPress={() => handleDeleteNote(item)}
           >
-            <Text style={styles.deleteText}>Excluir</Text>
+            <Text style={[styles.deleteText, { color: colors.danger }]}>Excluir</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -391,8 +391,8 @@ export function HomeScreen() {
             style={[
               styles.headerNavBtn,
               state.config.screenProtectionEnabled !== false
-                ? styles.screenProtectActiveBtn
-                : styles.screenProtectDisabledBtn,
+                ? { backgroundColor: colors.successBg, borderColor: colors.success }
+                : { backgroundColor: colors.dangerBg, borderColor: colors.danger },
             ]}
             onPress={() => {
               const current = state.config.screenProtectionEnabled !== false;
@@ -409,8 +409,8 @@ export function HomeScreen() {
               style={[
                 styles.headerNavText,
                 state.config.screenProtectionEnabled !== false
-                  ? styles.screenProtectActiveText
-                  : styles.screenProtectDisabledText,
+                  ? { color: colors.success, fontWeight: '700' }
+                  : { color: colors.danger, fontWeight: '700' },
               ]}
             >
               {state.config.screenProtectionEnabled !== false ? 'Seguro: ON' : 'Seguro: OFF'}
@@ -418,21 +418,24 @@ export function HomeScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.headerNavBtn}
+            style={[styles.headerNavBtn, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong }]}
             onPress={() => setSecurityModalVisible(true)}
           >
-            <Text style={styles.headerNavText}>Saúde</Text>
+            <Text style={[styles.headerNavText, { color: colors.text }]}>Saúde</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.headerNavBtn}
+            style={[styles.headerNavBtn, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong }]}
             onPress={() => setSettingsModalVisible(true)}
           >
-            <Text style={styles.headerNavText}>Ajustes</Text>
+            <Text style={[styles.headerNavText, { color: colors.text }]}>Ajustes</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.lockButton} onPress={lock}>
-            <Text style={styles.lockButtonText}>Trancar</Text>
+          <TouchableOpacity
+            style={[styles.lockButton, { backgroundColor: colors.accentBg, borderColor: colors.accentBorder }]}
+            onPress={lock}
+          >
+            <Text style={[styles.lockButtonText, { color: colors.accent }]}>Trancar</Text>
           </TouchableOpacity>
         </View>
       </Pressable>
@@ -484,14 +487,16 @@ export function HomeScreen() {
               activeOpacity={0.75}
               style={[
                 styles.categoryChip,
-                selectedCategory === cat.id && styles.categoryChipActive,
+                { backgroundColor: colors.surface, borderColor: colors.borderStrong },
+                selectedCategory === cat.id && { backgroundColor: colors.accentBg, borderColor: colors.accent },
               ]}
               onPress={() => { resetTimer(); setSelectedCategory(cat.id); }}
             >
               <Text
                 style={[
                   styles.categoryChipText,
-                  selectedCategory === cat.id && styles.categoryChipTextActive,
+                  { color: colors.textSecondary },
+                  selectedCategory === cat.id && { color: colors.accent, fontWeight: '700' },
                 ]}
               >
                 {cat.name}
@@ -504,37 +509,49 @@ export function HomeScreen() {
       {/* Ordenação para Senhas */}
       {tab === 'passwords' && (
         <View style={styles.sortContainer}>
-          <Text style={styles.sortLabel}>Ordenar:</Text>
+          <Text style={[styles.sortLabel, { color: colors.textSecondary }]}>Ordenar:</Text>
           <TouchableOpacity
-            style={[styles.sortChip, sortMode === 'nome' && styles.sortChipActive]}
+            style={[
+              styles.sortChip,
+              { backgroundColor: colors.surface, borderColor: colors.borderStrong },
+              sortMode === 'nome' && { backgroundColor: colors.accentBg, borderColor: colors.accent },
+            ]}
             onPress={() => { resetTimer(); setSortMode('nome'); }}
           >
-            <Text style={[styles.sortText, sortMode === 'nome' && styles.sortTextActive]}>Nome</Text>
+            <Text style={[styles.sortText, { color: colors.textSecondary }, sortMode === 'nome' && { color: colors.accent, fontWeight: '700' }]}>Nome</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.sortChip, sortMode === 'data' && styles.sortChipActive]}
+            style={[
+              styles.sortChip,
+              { backgroundColor: colors.surface, borderColor: colors.borderStrong },
+              sortMode === 'data' && { backgroundColor: colors.accentBg, borderColor: colors.accent },
+            ]}
             onPress={() => { resetTimer(); setSortMode('data'); }}
           >
-            <Text style={[styles.sortText, sortMode === 'data' && styles.sortTextActive]}>Data</Text>
+            <Text style={[styles.sortText, { color: colors.textSecondary }, sortMode === 'data' && { color: colors.accent, fontWeight: '700' }]}>Data</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.sortChip, sortMode === 'importancia' && styles.sortChipActive]}
+            style={[
+              styles.sortChip,
+              { backgroundColor: colors.surface, borderColor: colors.borderStrong },
+              sortMode === 'importancia' && { backgroundColor: colors.accentBg, borderColor: colors.accent },
+            ]}
             onPress={() => { resetTimer(); setSortMode('importancia'); }}
           >
-            <Text style={[styles.sortText, sortMode === 'importancia' && styles.sortTextActive]}>Prioridade</Text>
+            <Text style={[styles.sortText, { color: colors.textSecondary }, sortMode === 'importancia' && { color: colors.accent, fontWeight: '700' }]}>Prioridade</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {loading ? (
         <View style={styles.center}>
-          <Text style={styles.loadingText}>Carregando...</Text>
+          <Text style={[styles.loadingText, { color: colors.textMuted }]}>Carregando...</Text>
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={[styles.actionBtn, styles.retryBtn]} onPress={reload}>
-            <Text style={styles.actionText}>Tentar novamente</Text>
+          <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text>
+          <TouchableOpacity style={[styles.actionBtn, styles.retryBtn, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong }]} onPress={reload}>
+            <Text style={[styles.actionText, { color: colors.text }]}>Tentar novamente</Text>
           </TouchableOpacity>
         </View>
       ) : tab === 'passwords' ? (
@@ -546,7 +563,7 @@ export function HomeScreen() {
           onScrollBeginDrag={resetTimer}
           ListEmptyComponent={
             <View style={styles.center}>
-              <Text style={styles.emptyText}>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                 {search ? 'Nenhuma credencial encontrada' : 'Nenhuma senha salva'}
               </Text>
             </View>
@@ -561,7 +578,7 @@ export function HomeScreen() {
           onScrollBeginDrag={resetTimer}
           ListEmptyComponent={
             <View style={styles.center}>
-              <Text style={styles.emptyText}>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                 {search ? 'Nenhuma nota encontrada' : 'Nenhuma nota confidencial salva'}
               </Text>
             </View>

@@ -87,8 +87,15 @@ export async function getCurrentCoordinates(): Promise<{
  * Converte um texto de endereco em coordenadas geograficas (latitude e longitude).
  */
 export async function geocodeAddress(
-  address: string
+  address: string,
+  offlineOnly = false
 ): Promise<{ latitude: number; longitude: number }> {
+  if (offlineOnly) {
+    throw new Error(
+      'Modo 100% Offline ativo: a busca por endereço requer conexão com a internet. Use "Local Atual (GPS)" ou desative temporariamente o Modo 100% Offline em Privacidade, Rede e Acessibilidade.'
+    );
+  }
+
   const trimmed = address.trim();
   if (!trimmed) {
     throw new Error('Informe um endereço para buscar.');
