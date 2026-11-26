@@ -7,7 +7,14 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.enricogermano.guardiaopessoal",
+      "infoPlist": {
+        "NSCameraUsageDescription": "O Guardião Pessoal precisa da câmera para autenticação facial e captura de fotos.",
+        "NSPhotoLibraryUsageDescription": "O Guardião Pessoal precisa acessar sua biblioteca de fotos para anexar imagens.",
+        "NSFaceIDUsageDescription": "O Guardião Pessoal usa o Face ID para proteger e desbloquear seu cofre.",
+        "NSLocationWhenInUseUsageDescription": "O Guardião Pessoal usa sua localização para verificar áreas seguras de acesso."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -31,7 +38,8 @@
         {
           "locationWhenInUsePermission": "Permitir que o Guardião Pessoal acesse sua localização para validar Zonas Seguras (GPS)."
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {

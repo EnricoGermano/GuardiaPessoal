@@ -133,7 +133,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
         coords = await geocodeAddress(cleanAddress, state.config.offlineOnly);
         usedAddress = cleanAddress;
         if (!finalName) {
-          finalName = cleanAddress.split(',')[0].trim() || `Zona ${safeZones.length + 1}`;
+          finalName = `Local Seguro ${safeZones.length + 1}`;
         }
       } else {
         coords = await getCurrentCoordinates();
@@ -461,7 +461,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onClose }
 
               <TextInput
                 style={[styles.input, { backgroundColor: colors.surfaceAlt, borderColor: colors.borderStrong, color: colors.text }]}
-                placeholder={zoneMode === 'address' ? "Nome do local (opcional: Casa, Trabalho)" : "Nome do local (ex: Casa, Trabalho)"}
+                placeholder="Nome do local (ex: Casa, Trabalho)"
                 placeholderTextColor={colors.placeholder}
                 value={zoneName}
                 onChangeText={setZoneName}

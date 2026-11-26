@@ -174,12 +174,22 @@ export async function checkSafeZoneAccess(
       }
     }
 
+    const isAddressAsName =
+      Boolean(nearestZone?.address) &&
+      nearestZone!.name.trim().toLowerCase() ===
+        nearestZone!.address!.split(',')[0].trim().toLowerCase();
+    const safeDisplayName = nearestZone
+      ? isAddressAsName
+        ? 'Local Seguro'
+        : nearestZone.name
+      : undefined;
+
     return {
       allowed: false,
-      nearestZoneName: nearestZone?.name,
+      nearestZoneName: safeDisplayName,
       distanceMeters: Number.isFinite(minDistance) ? minDistance : undefined,
-      reason: nearestZone
-        ? `Você está a ${minDistance}m da zona "${nearestZone.name}" (raio permitido: ${nearestZone.radiusMeters}m).`
+      reason: safeDisplayName
+        ? `Você está fora da zona segura "${safeDisplayName}".`
         : 'Você está fora de todas as zonas seguras cadastradas.',
     };
   } catch (err: any) {
